@@ -1,4 +1,4 @@
-module split
+module Split
 # Perform shear wave splitting analysis on two orthogonal SAC traces
 
 using SAC
