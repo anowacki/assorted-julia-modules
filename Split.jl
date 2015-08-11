@@ -19,9 +19,12 @@ function search_phi(t1::SACtr, t2::SACtr;
 	for i = 1:nphi
 		dt, lam1[i,:], lam2[i,:] = search_dt(t1, t2, phi[i], dt_max, ndt)
 	end
-	# Return minimum values as well
+	# Best parameters
 	ip, idt = minloc2(lam2)
-	return phi, dt, lam1, lam2, phi[ip], dt[idt]
+	# Find source polarisation and error therein
+	spol, dspol = sourcepol(t1, t2, phi[ip], dt[idt])
+	# Return minimum values as well
+	return phi, dt, lam1, lam2, phi[ip], dt[idt], spol, dspol
 end
 
 function search_dt(t1::SACtr, t2::SACtr, phi, dt_max, ndt)
@@ -57,6 +60,21 @@ function compute_eigvals(t1::SACtr, t2::SACtr, phi::Number, dt::Number)
 	c = covar(T1, T2)
 	eval = Base.eigvals(c)
 	return maximum(eval), minimum(eval)
+end
+
+function sourcepol(t1::SACtr, t2::SACtr, phi::Number, dt::Number)
+	# Compute the source polarisation and error for the best-fitting phi and dt
+	T1, T2 = SAC.copy(t1), SAC.copy(t2)
+	apply_split!(T1, T2, phi, -dt)
+	c = covar(T1, T2)
+	eval, evec = Base.eig(c)
+	i1 = indmax(eval)
+	i2 = 3 - i1
+	lam1 = eval[i1]
+	lam2 = eval[i2]
+	spol = rad2deg(atan2(evec[2,i1], evec[1,i1]))
+	dspol = rad2deg(atan(lam2/lam1))
+	spol, dspol
 end
 
 function covar(t1::SACtr, t2::SACtr)
