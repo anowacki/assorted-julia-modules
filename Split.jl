@@ -79,7 +79,7 @@ end
 
 function covar(t1::SACtr, t2::SACtr)
 	# Return the covariance matrix for two traces
-	c = Array{SAC.SACFloat}(2,2)
+	c = Array(SAC.SACFloat, 2, 2)
 	c[1,1] = sum(t1.t.^2)
 	c[2,2] = sum(t2.t.^2)
 	c[1,2] = c[2,1] = sum(t1.t.*t2.t)
