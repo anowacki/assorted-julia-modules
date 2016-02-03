@@ -634,6 +634,31 @@ function write(s::SACtr, file::ASCIIString; byteswap=sac_force_swap)
 end
 
 @doc """
+new()
+
+   Return a new, empty SAC trace
+""" ->
+function new()
+	SACtr(sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull,
+		sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull,
+		sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull,
+		sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull,
+		sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull,
+		sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull,
+		sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull, sac_rnull,
+		sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull,
+		sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull,
+		sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull, sac_inull,
+		sac_inull, sac_inull, sac_inull, sac_inull, sac_inull,
+		false, false, false, false, false,
+		sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull,
+		sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull, sac_cnull,
+		sac_cnull, sac_cnull, sac_cnull,
+		Array{SACFloat,1}(0))
+end
+
+
+@doc """
 copy(s::SACtr) -> t::SACtr
 
    Return a copy of SAC trace <s>.
