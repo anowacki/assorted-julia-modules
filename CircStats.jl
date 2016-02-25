@@ -7,20 +7,23 @@ By default, all input and output from routines is in radians, but in general pas
 """
 module CircStats
 
-export cdist,
-       cmean,
-       cmedian
+export
+    cdist,
+    cmean,
+    cmedian,
+    cresultant,
+    von_mises_pdf
 
-"`cdist(a, b, degrees::Bool=false) -> angle`
+"""`cdist(a, b, degrees::Bool=false) -> angle`
 
 Return the angular distance from `a` to `b` (b - a) in the forward
 direction; hence if `b` is 'behind' `a`, `distance` will be negative.
 
 Angles are confined to be the smaller possible angle, so are in the range
-[-π:π] (or [-180°:180°]).
+[-π:π], or [-180°:180°].
 
 Angles are in radians, unless `degrees` == true.
-"
+"""
 cdist(a, b) = (b%2pi - a%2pi + pi)%2pi - pi
 cdist(a, b, degrees::Bool) = degrees ? (b%360 - a%360 + 180)%360 - 180 : cdist(a, b)
 
@@ -100,5 +103,35 @@ function test_median(;plot::Bool=false)
     @assert isapprox(median, mall, atol=1e-3) "$(mall) != $(median)"
 
 end
+
+"
+`cresultant(a, degrees=false) -> R`
+`cresultant(a, w, degrees=false) -> Rc`
+
+Return the resultant vector length, `R`, from a set of angles, `a`.
+
+If data are binned by binwidth `w`, an unbiased estimate of `R`, `Rc` is returned
+when `w` is supplied.
+
+Angles are in radians, unless `degrees` == true.
+"
+cresultant(a, degrees::Bool=false) = degrees ?
+    sqrt(sum(sin(deg2rad(a)))^2 + sum(cos(deg2rad(a)))^2)/length(a) :
+    sqrt(sum(sin(a))^2 + sum(cos(a))^2)/length(a)
+cresultant(a, w::Number, degrees::Bool=false) = degrees ?
+    cresultant(a, true)*deg2rad(w)/(2sin(deg2rad(w)/2)) : cresultant(a)*w/(2sin(w/2))
+
+"
+`von_mises_pdf(a, µ, κ, degrees=false) -> p`
+
+Return the Von Mises probability density function at `a`, for a Von Mises distribution
+with circular mean `µ` and concentration `κ`.
+
+Angles are in radians, unless `degrees` == true.
+"
+von_mises_pdf(a, mu::Number, k::Number, degrees::Bool=true) = degrees ?
+                                    exp(k*cos(deg2rad(a - mu)))/(2pi*besseli(0, k)) :
+                                    exp(k*cos(a - mu))/(2pi*besseli(0, k))
+
 
 end # module
