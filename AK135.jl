@@ -9,7 +9,10 @@ export
 	vp,
 	vs
 
+"Number of radial points in AK135 model (number of layers + 1)"
 const N = 136
+"Radius of Earth in AK135 model"
+const R = 6371.
 
 const rad = [
        0.,   50.,  101.,  152.,  202.,  253.,  304.,  354.,
@@ -29,6 +32,11 @@ const rad = [
     5561., 5611., 5661., 5711., 5711., 5761., 5811., 5861.,
     5911., 5961., 5961., 6011., 6061., 6111., 6161., 6161.,
     6206., 6251., 6293., 6336., 6336., 6351., 6351., 6371.] # / km
+
+# Indices of nodes in each major layer
+const irad_inner_core = 1:24
+const irad_outer_core = 25:69
+const irad_mantle = 70:136
 
 const rho_model = [
     13.0122, 13.0117, 13.0100, 13.0074, 13.0036, 12.9988, 12.9929, 12.9859,
@@ -158,13 +166,13 @@ AK135 (136, confusingly).
 """
 function interp(r, v)
 	length(v) == N || error("AK135.interp: Size of `v` is not $(N)")
+	# i is the index of the node *below* this radius
 	i = findlayer(r)
-	rad[i] == r
-	# Case of being at the surface
-	if i == N
+	# Exactly at a node or at the surface
+	if rad[i] == r || i == N
 		return v[i]
 	# Discontinuity: choose the lower layer
-	elseif v[i] == v[i+1]
+	elseif rad[i] == rad[i+1]
 		return v[i]
 	else
 		return (v[i]*(rad[i+1] - r) + v[i+1]*(r - rad[i]))/(rad[i+1] - rad[i])
@@ -174,13 +182,13 @@ end
 """
 `findlayer(r) -> i`
 
-Return the layer index `i` in which the radius `r` occurs.
+Return the node index `i` at or above which the radius `r` occurs.
 """
 function findlayer(r)
 	rad[1] <= r <= rad[end] ||
 		error("AK135.findlayer: Radius must be in range $(rad[1]) to $(rad[end]) km")
-	@inbounds for i = 1:N-1
-		r < rad[i] && return i - 1
+	@inbounds for i = 1:N
+		r < rad[i] && return i
 	end
 	N
 end
