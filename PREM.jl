@@ -2,6 +2,19 @@ module PREM
 # Module PREM provides a number of routines for evaluating PREM
 # as given by Dziewonski & Anderson, PEPI, 1981.
 
+export
+    eta,
+    pressure,
+    Qkappa,
+    Qmu,
+    rho,
+    vp,
+    vph,
+    vpv,
+    vs,
+    vsh,
+    vsv
+
 const NewtonG = 6.67428e-11
 
 # Radius of the Earth in the model
@@ -64,16 +77,26 @@ const Rho2 = rho2.*1.e-3/a^2
 const Rho3 = rho3.*1.e-6/a^3
 
 # Return values in g/cm^3 or km/s
+"Return the density at radius `r` km in g/cm^3"
 rho(r) = poly(r, rho0, rho1, rho2, rho3)
+"Return the P-wave velocity at radius `r` km in km/s"
 vp(r)  = poly(r, vp0, vp1, vp2, vp3)
+"Return the S-wave velocity at radius `r` km in km/s"
 vs(r)  = poly(r, vs0, vs1, vs2, vs3)
 # Note anisotropic velocities are only different in 0 and 1 terms
+"Return Vpv at radius `r` km in km/s"
 vpv(r) = poly(r, vpv0, vpv1, vp2, vp3)
+"Return Vph at radius `r` km in km/s"
 vph(r) = poly(r, vph0, vph1, vp2, vp3)
+"Return Vsv at radius `r` km in km/s"
 vsv(r) = poly(r, vsv0, vsv1, vs2, vs3)
+"Return Vsh at radius `r` km in km/s"
 vsh(r) = poly(r, vsh0, vsh1, vs2, vs3)
+"Return Qmu at radius `r` km"
 Qmu(r) = Qmu_model[findlayer(r)]
+"Return Qkappa at radius `r` km."
 Qkappa(r) = Qkappa_model[findlayer(r)]
+"Return anisotropic parameter eta at radius `r` km."
 eta(r) = poly(r, eta0, eta1, zeros(eta0), zeros(eta0))
 
 function findlayer(r)
@@ -125,6 +148,7 @@ surface_mass(r) = Me - mass(r)
 g(r) = (r == 0) ? 0. : NewtonG*mass(r)/(r*1.e3)^2
 
 integration_func(r) = 1.e3*rho(r)*g(r)
+"Return the pressure in Pa at radius `r` km"
 function pressure(r)
 	# Compute the lithostatic pressure at radius r km by integrating downward
 	return 1.e3*quadgk(integration_func, r, a)[1]
