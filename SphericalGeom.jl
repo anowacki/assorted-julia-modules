@@ -10,6 +10,7 @@ module SphericalGeom
 export
     azimuth,
     delta,
+    sample,
     step
 
 """
@@ -20,15 +21,15 @@ and (`lon2`, `lat2`).  Points and distance are read and returned in degrees
 by default; use `degrees=false` for radians.
 """
 function delta(lon1, lat1, lon2, lat2, degrees::Bool=true)
-    points_valid([lon1, lon2], [lat1, lat2], degrees) ||
+    points_valid([lon1; lon2], [lat1; lat2], degrees) ||
         error("delta: Points are not on the sphere")
     if degrees
         lon1, lat1, lon2, lat2 = deg2rad(lon1), deg2rad(lat1), deg2rad(lon2), deg2rad(lat2)
     end
     d = atan2(sqrt(
-               (cos(lat2)*sin(lon2-lon1))^2 + (cos(lat1)*sin(lat2) -
-                sin(lat1)*cos(lat2)*cos(lon2-lon1))^2),
-               sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2)*cos(lon2-lon1)
+               (cos(lat2).*sin(lon2-lon1)).^2 + (cos(lat1).*sin(lat2) -
+                sin(lat1).*cos(lat2).*cos(lon2-lon1)).^2),
+               sin(lat1).*sin(lat2) + cos(lat1).*cos(lat2).*cos(lon2-lon1)
               )
     degrees ? rad2deg(d) : d
 end
@@ -66,7 +67,7 @@ Points and azimuth are read and returned in degrees by default; use `degrees=fal
 for radians.
 """
 function azimuth(lon1, lat1, lon2, lat2, degrees::Bool=true)
-    points_valid([lon1, lon2], [lat1, lat2], degrees) ||
+    points_valid([lon1; lon2], [lat1; lat2], degrees) ||
         error("azimuth: Points are not on the sphere")
     if degrees
         lon1, lat1, lon2, lat2 = deg2rad(lon1), deg2rad(lat1), deg2rad(lon2), deg2rad(lat2)
@@ -128,4 +129,3 @@ points_valid(lon, lat, degrees::Bool=true) =
     degrees ? all(abs(lat) .<= 90.) : all(abs(lat) .<= pi)
 
 end # module
-
