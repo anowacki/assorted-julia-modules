@@ -7,6 +7,8 @@ By default, all input and output from routines is in radians, but in general pas
 """
 module CircStats
 
+__precompile__()
+
 export
     cdist,
     cmean,

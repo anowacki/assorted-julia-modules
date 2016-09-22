@@ -7,6 +7,10 @@ when making repeated calculations or when using large arrays in terms of speed.
 """
 module SphericalGeom
 
+__precompile__()
+
+import Base.step
+
 export
     azimuth,
     delta,
