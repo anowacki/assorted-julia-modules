@@ -13,9 +13,26 @@ import Base.step
 
 export
     azimuth,
+    cart2geog,
     delta,
+    geog2cart,
     sample,
     step
+
+"""
+    cart2geog(x, y, z, degrees::Bool=true) -> lon, lat, r
+
+Compute the longitude, latitude and radius given the cartesian coordinates `x`,
+`y` and `z`, where `x` is at (lon,lat) = (0,0), `y` is at (90°,0) and `z` is
+through lat = 90°.
+"""
+function cart2geog(x, y, z, degrees::Bool=true)
+    r = sqrt(x.^2 + y.^2 + z.^2)
+    r == 0. && return zero(x), zero(x), zero(x)
+    lon = atan2(y, x)
+    lat = asin(z./r)
+    degrees ? (rad2deg(lon), rad2deg(lat), r) : (lon, lat, r)
+end
 
 """
 `delta(lon1, lat1, lon2, lat2, degrees::Bool=true) -> d`
@@ -37,6 +54,28 @@ function delta(lon1, lat1, lon2, lat2, degrees::Bool=true)
               )
     degrees ? rad2deg(d) : d
 end
+
+"""
+    geog2cart(lon, lat, r, degrees::Bool=true) -> x, y, z
+    geog2cart(lon, lat, degrees::Bool) -> x, y, z
+
+Return the cartesian coordinates given the geographic longitude, latitude and
+radius `lon`, `lat` and `r`.
+
+If `r` is not given, points are returned on the unit sphere
+"""
+function geog2cart(lon, lat, r, degrees::Bool=true)
+    points_valid(lon, lat, degrees) || error("geog2cart: Points are not on the sphere")
+    degrees && begin lon, lat = deg2rad(lon), deg2rad(lat) end
+    x = r.*cos(lon).*cos(lat)
+    y = r.*sin(lon).*cos(lat)
+    z = r.*sin(lat)
+    x, y, z
+end
+geog2cart{A<:AbstractArray,B<:AbstractArray}(lon::A, lat::B, degrees::Bool=true) =
+    geog2cart(lon, lat, ones(lon), degrees)
+geog2cart(lon, lat, degrees::Bool=true) = geog2cart(lon, lat, one(lon))
+
 
 """
 `step(lon, lat, az, delta, degrees::Bool=true) -> lon1, lat1`
@@ -130,6 +169,6 @@ Return `true` if all points in arrays `lon` and `lat` are on the sphere.
 `degrees=false` for radians.
 """
 points_valid(lon, lat, degrees::Bool=true) =
-    degrees ? all(abs(lat) .<= 90.) : all(abs(lat) .<= pi)
+    degrees ? !any(abs(lat) .> 90.) : !any(abs(lat) .> pi/2.)
 
 end # module
