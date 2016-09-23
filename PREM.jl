@@ -2,12 +2,15 @@ module PREM
 # Module PREM provides a number of routines for evaluating PREM
 # as given by Dziewonski & Anderson, PEPI, 1981.
 
+__precompile__()
+
 export
     eta,
     pressure,
     Qkappa,
     Qmu,
     rho,
+    vc,
     vp,
     vph,
     vpv,
@@ -79,10 +82,12 @@ const Rho3 = rho3.*1.e-6/a^3
 # Return values in g/cm^3 or km/s
 "`rho(r)`:  Return the density at radius `r` km in g/cm^3"
 rho(r) = poly(r, rho0, rho1, rho2, rho3)
-"`vp(r)`:  Return the P-wave velocity at radius `r` km in km/s"
+"`vp(r)`:  Return the isotropic P-wave velocity at radius `r` km in km/s"
 vp(r)  = poly(r, vp0, vp1, vp2, vp3)
-"`vs(r)`:  Return the S-wave velocity at radius `r` km in km/s"
+"`vs(r)`:  Return the isotropic S-wave velocity at radius `r` km in km/s"
 vs(r)  = poly(r, vs0, vs1, vs2, vs3)
+"`vc(r)`:  Return the isotropic bulk sound velocity at radius `r` km in km/s"
+vc(r) = sqrt(vp(r).^2 - 4/3*vs(r).^2)
 # Note anisotropic velocities are only different in 0 and 1 terms
 "`vpv(r)`:  Return Vpv at radius `r` km in km/s"
 vpv(r) = poly(r, vpv0, vpv1, vp2, vp3)
@@ -148,7 +153,7 @@ surface_mass(r) = Me - mass(r)
 g(r) = (r == 0) ? 0. : NewtonG*mass(r)/(r*1.e3)^2
 
 integration_func(r) = 1.e3*rho(r)*g(r)
-"Return the pressure in Pa at radius `r` km"
+"`pressure(r)`:  Return the pressure in Pa at radius `r` km"
 function pressure(r)
 	# Compute the lithostatic pressure at radius r km by integrating downward
 	return 1.e3*quadgk(integration_func, r, a)[1]
