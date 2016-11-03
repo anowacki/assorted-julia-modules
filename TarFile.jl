@@ -25,6 +25,7 @@ julia> content, names = extract("/path/to/tarfile.tar")
 """
 module TarFile
 
+import Glob: FilenameMatch, @fn_str
 using PyCall
 
 export extract
@@ -32,26 +33,41 @@ export extract
 @pyimport tarfile as TF
 
 """
-    extract(file) -> file_contents::Array{Array{Uint8}}, file_names::Array{String}
+    extract(file, pattern="*", verbose=false) -> file_contents::Array{Array{Uint8}}, file_names::Array{String}
 
 Read a tape archive ('tar') file and return the contents as `file_contents` and
-file paths as `file_names` to all the members of the archive.
+file paths as `file_names` to all the members of the archive.  If `pattern` is
+specified, then only return files matching the pattern.  This can be a Regex
+(specified by `r"..."`) or a file globbing pattern.
 
 Archives with gzip or bzip2 compression are supported without any further action
 required by the user.
 """
-function extract(file)
+function extract(file, pattern::Union{Regex,FilenameMatch}=r""; verbose=false)
     # If this gets too slow, look at:
     #   https://blogs.it.ox.ac.uk/inapickle/2011/06/20/high-memory-usage-when-using-pythons-tarfile-module/
-    f = TF.open(file)
+    verbose && info("Opening tar file '$file'")
     contents = Array{Array{UInt8,1},1}()
     names = Array{String,1}()
-    for name in f[:getnames]()
-        push!(names, name)
-        push!(contents, f[:extractfile](name)[:read]())
+    f = TF.open(file)
+    try
+        for member in f
+            filename = member[:path]
+            if ismatch(pattern, filename) && member[:isfile]()
+                handle = f[:extractfile](member)
+                handle == nothing && continue
+                verbose && info("  Extracting file $filename")
+                push!(names, filename)
+                push!(contents, handle[:read]())
+            end
+        end
+    catch err
+        verbose && info("  Cleaning up after encountering error:\n$err")
+    finally
+        f[:close]()
     end
-    f[:close]()
     contents, names
 end
+extract(file, pattern::AbstractString; kw...) = extract(file, FilenameMatch(pattern); kw...)
 
 end # module
