@@ -106,11 +106,10 @@ eta(r) = poly(r, eta0, eta1, zeros(eta0), zeros(eta0))
 
 function findlayer(r)
 	r < 0. || r > a && error("PREM: radius must be in range 0 to $a km")
-    i = 1
-	for i = 1:size(rad)[1]
+	for i = 1:length(rad)
 		r < rad[i] && return i
 	end
-	return size(rad)[1]
+	return length(rad)
 end
 
 function poly(r, a0, a1, a2, a3)
