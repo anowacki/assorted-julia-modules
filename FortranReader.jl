@@ -16,7 +16,8 @@ module FortranReader
 
 export
     read_record,
-    skip_record
+    skip_record,
+    write_record
 
 # Standard Fortran number sizes
 typealias Real4 Float32
@@ -29,6 +30,8 @@ typealias Character String
 
 const len4 = sizeof(Integer4)
 const len8 = sizeof(Integer8)
+
+const permissible_types = (Real4, Real8, Integer4, Integer8, Complex4, Complex8, Character)
 
 """
     read_record(f::IO, T::DataType, dims...) -> v::T
@@ -86,10 +89,42 @@ and the number of bytes `n` read.
 """
 function read_raw(f::IOStream)
     nstart = reinterpret(Integer4, read(f, len4))[1]
+    pos = position(f)
     d = read(f, nstart)
     nend = reinterpret(Integer4, read(f, len4))[1]
-    nstart == nend || error("Error reading value of type $T from stream $(f.name)")
+    nstart == nend || error("Error reading raw data at position $pos from stream "
+        * "$(f.name): record length markers do not match ($nstart != $nend)")
     d, nstart
+end
+
+"""
+    write_record(f::IOStream, T::DataType, x...) -> n::Int
+
+Write a record to the stream `f` containing `x`, which will be converted to have
+element type `T`.  `T` must therefore correspond to one of the Fortran types 
+`Float{32,64}`, `Int{32,64}`, `Complex{64,128}` or `String`.  You can also use the
+equivalent Fortran names which are exported by the module:  `Integer{4,8}`, `Real{4,8}`,
+`Complex{4,8}` and `Character`.
+
+Return the **total** number of bytes written to the stream `f`, including the start-
+and end-markers of the record.
+"""
+function write_record(f::IOStream, T::DataType, xs...)
+    T in permissible_types || error("Type of record $T is not supported.  " *
+        "Choose one of $permissible_types")
+    bytes_written = 0
+    for x in xs
+        n = Integer4(sizeof(eltype(T))*length(x))
+        write(f, n)
+        if ndims(x) > 0
+            write(f, convert(Array{T}, x))
+        else
+            write(f, convert(T, x))
+        end
+        write(f, n)
+        bytes_written += 2*len4 + n
+    end
+    bytes_written
 end
 
 end # module
