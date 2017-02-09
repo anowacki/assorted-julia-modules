@@ -35,7 +35,7 @@ const len8 = sizeof(Integer8)
 
 Return the next record in the stream `f`, in the format of `T`.  This means,
 `read_record` assumes that the type of `v` is `T` (e.g., `Float64`).
-`dims...` holds the dimensions; the default (no argument) assumes a scalar record
+`dims...` holds the dimensions; the default (no argument) assumes a scalar record.
 """
 function read_record(f::IOStream, T::DataType, dims...)
     all(Bool[typeof(dim) <: Integer for dim in dims]) || error("`dims` must be integers")
@@ -51,40 +51,22 @@ function read_record(f::IOStream, T::DataType, dims...)
         reinterpret(T, d)[1]
     elseif rank == 1
         n = len ÷ Tlen
-        a = Array{T}(n)
-        for i in 1:n a[i] = reinterpret(T, d[(i - 1)*Tlen+1:i*Tlen])[1] end
-        a
-    elseif rank == 2
-        m, n = dims
-        len ÷ Tlen == m*n || error("Requested dimensions do not match size "*
-            "of record.  (Requested $m*$n; record size $(len÷Tlen))")
-        a = Array{T}(m, n)
-        k = 0
-        for j in 1:n, i in 1:m
-            k += 1
-            a[i,j] = reinterpret(T, d[(k - 1)*Tlen+1:k*Tlen])[1]
-        end
-        a
-    elseif rank == 3
-        l, m, n = dims
-        len ÷ Tlen == l*m*n || error("Requested dimensions do not match size " *
-            "of record.  (Requested $l*$m*$n; record size $(len÷Tlen))")
-        a = Array{T}(l, m, n)
-        k = 0
-        for r in 1:n, q in 1:m, p in 1:l
-            k += 1
-            a[p,q,r] = reinterpret(T, d[(k - 1)*Tlen+1:k*Tlen])[1]
-        end
-        a
+        n != dims[1] && warn("Length of record does not match dimension supplied " *
+            "(Requested $(dims[1]); read size $n)")
+        reinterpret(T, d)
+    elseif rank >= 2
+        len ÷ Tlen == prod(dims) || error("Requested dimensions do not match size "*
+            "of record.  (Requested $dims (size $(prod(dims))); record size $(len÷Tlen))")
+        reshape(reinterpret(T, d), dims)
     else
-        error("Arrays with rank > 3 not implemented")
+        error("Arrays must have positive rank")
     end
 end
 
 """
     skip_record(f::IOStream) -> n::Int
 
-Skip over the next record, returning the length of the record
+Skip over the next record, returning the length of the record.
 """
 function skip_record(f::IOStream)
     nstart = reinterpret(Integer4, read(f, len4))[1]
