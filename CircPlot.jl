@@ -129,7 +129,8 @@ end
 Unexported routines
 =#
 """Return a `StatsBase.Histogram` with the results of binning the angles `a`
-into bins `binwidth` wide."""
+into bins `binwidth` wide.  If `axial` is `true`, then directions have
+π symmetry."""
 function fit_hist(a, binwidth, degrees::Bool, axial::Bool)
     n = (degrees ? round(Int, 360/binwidth) : round(Int, 2pi/binwidth))
     n = max(1, n)
