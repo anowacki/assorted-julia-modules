@@ -89,14 +89,14 @@ function cplot_histogram(a, binwidth, degrees::Bool=false;
                          azimuth::Bool=false, axial::Bool=false,
                          circ=nothing,
                          kwargs...)
-    hist = fit_hist(a, binwidth, degrees, azimuth, axial)
+    hist = fit_hist(a, binwidth, degrees, axial)
     n = length(hist.weights)
     edges = hist.edges[1]
+    azimuth && (edges = π/2 .- collect(edges))
     R = maximum(hist.weights)
     p = plot(aspect_ratio=:equal, xlim=(-R,R), ylim=(-R,R), legend=false)
     circ != nothing && plot!(p, circle(R); circ...)
-    plot!(p, sector.(edges[1:n], edges[2:n+1], hist.weights), l=stroke(0),
-        fill=:black; kwargs...)
+    plot!(p, sector.(edges[1:n], edges[2:n+1], hist.weights), fill=:black; kwargs...)
     p
 end
 
@@ -116,11 +116,12 @@ bar count required for the plot to fill the entire maximum radius from `maxr`.
 """
 function chistogram(a, binwidth, degrees=false, x=0, y=0;
         axial=false, azimuth=false, scale=1, maxr=nothing, minobs=1)
-    hist = fit_hist(a, binwidth, degrees, azimuth, axial)
+    hist = fit_hist(a, binwidth, degrees, axial)
     n = length(hist.weights)
     edges = hist.edges[1]
     R = maximum(hist.weights)
     maxr != nothing && (scale = maxr/max(minobs, R))
+    azimuth && (edges = π/2 .- collect(edges))
     sector.(edges[1:n], edges[2:n+1], hist.weights*scale, x, y)
 end
 
@@ -129,14 +130,21 @@ Unexported routines
 =#
 """Return a `StatsBase.Histogram` with the results of binning the angles `a`
 into bins `binwidth` wide."""
-function fit_hist(a, binwidth, degrees::Bool, azimuth::Bool, axial::Bool)
-    n = (degrees ? round(Int, 360/binwidth) : round(Int, 2pi/w))
+function fit_hist(a, binwidth, degrees::Bool, axial::Bool)
+    n = (degrees ? round(Int, 360/binwidth) : round(Int, 2pi/binwidth))
+    n = max(1, n)
     binwidth = 2pi/n
     bins = linspace(0, 2pi, n+1)
     data = degrees ? deg2rad.(mod.(a, 360)) : mod.(a, 2pi)
-    axial && (data = [mod.(data, pi); mod.(data, pi).+pi])
-    azimuth && (data .= mod.(piby2 .- data, 2pi))
-    StatsBase.fit(StatsBase.Histogram, data, bins, closed=:left)
+    # FIXME: Many angles are given as whole numbers: this cludge helps
+    # an issue where floating point values sometimes are binned one way,
+    # sometimes another, giving polar histograms which depend on the range
+    # in which angles are given.
+    data .+= 10*eps(eltype(a))
+    axial && (data .= mod.(data, pi))
+    h = StatsBase.fit(StatsBase.Histogram, data, bins, closed=:left)
+    axial && (h.weights[end÷2+1:end] .= h.weights[1:end÷2])
+    h
 end
 
 """Return a sensible number of segments between two angles in radians θ₁ and θ₂."""
@@ -152,11 +160,12 @@ arc(θ₁, θ₂, r=1, x=0, y=0) = Tuple{Float64,Float64}[(x+r*cos(θ), y+r*sin(
 
 """Return a sector (pie wedge) between angles `θ₁` and `θ₂` radians from x with
 radius `r`, centred at `x` and `y`."""
-sector(θ₁, θ₂, r=1, x=0, y=0) = Shape(vcat(arc(θ₁, θ₂, r, x, y), (x, y)))
+sector(θ₁, θ₂, r=1, x=0, y=0)::Shape =
+    Shape(vcat(arc(θ₁, θ₂, r, x, y), Tuple{Float64,Float64}((x, y))))
 
-"""Return a filled sector (chordshape) between two angles θ₁ and θ₂ radians from
+"""Return a filled sector (arcshape) between two angles θ₁ and θ₂ radians from
 x and two radii, `r₁` and `r₂`, centred at `x` and `y`."""
-chordshape(θ₁, θ₂, r₁, r₂, x=0, y=0) =
+arcshape(θ₁, θ₂, r₁, r₂, x=0, y=0) =
     Shape(vcat(arc(θ₁, θ₂, r₁, x, y), arc(θ₂, θ₁, r₂, x, y)))
 
 end # module
