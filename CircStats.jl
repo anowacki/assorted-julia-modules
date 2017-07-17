@@ -14,6 +14,8 @@ export
     cmean,
     cmedian,
     cresultant,
+    cstd,
+    cvariance,
     von_mises_pdf
 
 """`cdist(a, b, degrees::Bool=false) -> angle`
@@ -35,8 +37,8 @@ Return the mean angle from the set of angles in `a`.
 
 Angles are in radians, unless `degrees` == true.
 "
-cmean(a) = atan2(sum(sin(a)), sum(cos(a)))
-cmean(a, degrees::Bool) = degrees ? rad2deg(cmean(deg2rad(a))) : cmean(a)
+cmean(a) = atan2(sum(sin.(a)), sum(cos.(a)))
+cmean(a, degrees::Bool) = degrees ? rad2deg(cmean(deg2rad.(a))) : cmean(a)
 
 "`cmedian(a::Array, degrees::Bool=false) -> median`
 
@@ -118,10 +120,35 @@ when `w` is supplied.
 Angles are in radians, unless `degrees` == true.
 "
 cresultant(a, degrees::Bool=false) = degrees ?
-    sqrt(sum(sin(deg2rad(a)))^2 + sum(cos(deg2rad(a)))^2)/length(a) :
-    sqrt(sum(sin(a))^2 + sum(cos(a))^2)/length(a)
-cresultant(a, w::Number, degrees::Bool=false) = degrees ?
+    sqrt(sum(sin.(deg2rad.(a)))^2 + sum(cos.(deg2rad.(a)))^2)/length(a) :
+    sqrt(sum(sin.(a))^2 + sum(cos(a))^2)/length(a)
+cresultant(a, w::Real, degrees::Bool=false) = degrees ?
     cresultant(a, true)*deg2rad(w)/(2sin(deg2rad(w)/2)) : cresultant(a)*w/(2sin(w/2))
+
+"""
+    cstd(a, degrees=false) -> σ
+
+Return the standard deviation, `σ`, for a set of angles `a`.
+
+Angles are in radians, unless `degrees == true`.
+"""
+cstd(a, degrees::Bool=false) = sqrt(-2.*log(cresultant(a, degrees)))
+
+"""
+    cvariance(a, degrees=false) -> σ²
+
+Return the circular variance, `σ²`, of a set of angles `a`.
+
+Angles are in radians, unless `degrees == true`.
+"""
+function cvariance(a, degrees::Bool=false)
+    a_mean = cmean(a, degrees)
+    if degrees
+        1. - sum(cos.(deg2rad.(a - a_mean)))/length(a)
+    else
+        1. - sum(cos.(a - a_mean))/length(a)
+    end
+end
 
 "
 `von_mises_pdf(a, µ, κ, degrees=false) -> p`
@@ -131,7 +158,7 @@ with circular mean `µ` and concentration `κ`.
 
 Angles are in radians, unless `degrees` == true.
 "
-von_mises_pdf(a, mu::Number, k::Number, degrees::Bool=true) = degrees ?
+von_mises_pdf(a, mu::Real, k::Real, degrees::Bool=true) = degrees ?
                                     exp(k*cos(deg2rad(a - mu)))/(2pi*besseli(0, k)) :
                                     exp(k*cos(a - mu))/(2pi*besseli(0, k))
 
