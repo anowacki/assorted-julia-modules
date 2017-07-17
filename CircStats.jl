@@ -27,7 +27,7 @@ Angles are confined to be the smaller possible angle, so are in the range
 Angles are in radians, unless `degrees` == true.
 """
 cdist(a, b) = (b%2pi - a%2pi + pi)%2pi - pi
-cdist(a, b, degrees::Bool) = degrees ? (b%360 - a%360 + 180)%360 - 180 : cdist(a, b)
+cdist(a, b, degrees::Bool) = degrees ? (b%360. - a%360. + 180.)%360. - 180. : cdist(a, b)
 
 "`cmean(a::Array, degrees::Bool=false) -> mean`
 
