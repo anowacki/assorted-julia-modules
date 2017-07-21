@@ -22,8 +22,6 @@ export
     cplot_histogram,
     cplot_pts
 
-const piby2 = π/2
-
 #=
 Exported routines
 =#
@@ -46,15 +44,15 @@ function cplot_pts(a, degrees::Bool=false;
                    padding=0.05, R=1, centre=(0,0), kwargs...)
     circum = 0:0.01:2π
     markerstyle = (0.1,:blue)
-    degrees && (a = deg2rad(a))
-    azimuth && (a = piby2 - a)
+    degrees && (a = deg2rad.(a))
+    azimuth && (a = π/2 - a)
     R += padding
     x0, y0 = centre
     p = plot(aspect_ratio=:equal,
         xlim=(-R+x0,R+x0), ylim=(-R+y0,R+y0), legend=false)
-    line && plot!(p, x0+cos(circum), y0+sin(circum), l=:black)
-    scatter!(p, x0+cos(a), y0+sin(a), m=markerstyle; kwargs...)
-    axial && scatter!(p, x0+cos(a+π), y0+sin(a+π), m=markerstyle; kwargs...)
+    line && plot!(p, x0+cos.(circum), y0+sin.(circum), l=:black)
+    scatter!(p, x0+cos.(a), y0+sin.(a), m=markerstyle; kwargs...)
+    axial && scatter!(p, x0+cos.(a+π), y0+sin.(a+π), m=markerstyle; kwargs...)
     if azimuth
         xlabel!(p, "East")
         ylabel!(p, "North")
@@ -65,8 +63,8 @@ function cplot_pts(a, degrees::Bool=false;
     p
 end
 
-"
-    cplot_histogram(a, binwidth, degrees=false; azimuth=false, axial=false; kwargs...) -> ::Plots.Plot
+"""
+    cplot_histogram(a, binwidth, degrees=false; azimuth=false, axial=false, circ=nothing; kwargs...) -> ::Plots.Plot
 
 Plot a polar histogram of a set of angles `a` using bins `binwidth` wide.
 `binwidth` should be given in the same convention (radians or °) as the data.
@@ -84,7 +82,7 @@ shape around the plot.
 
 Additional keyword arguments `kwargs...` are passed to `Plots.plot()` when
 plotting the bars.
-"
+"""
 function cplot_histogram(a, binwidth, degrees::Bool=false;
                          azimuth::Bool=false, axial::Bool=false,
                          circ=nothing,
@@ -159,13 +157,13 @@ anticlockwise from the +x axis, with radius `r`, centred at `x` and `y`."""
 arc(θ₁, θ₂, r=1, x=0, y=0) = Tuple{Float64,Float64}[(x+r*cos(θ), y+r*sin(θ))
     for θ in linspace(θ₁, θ₂, number_of_segments(θ₁, θ₂))]
 
-"""Return a sector (pie wedge) between angles `θ₁` and `θ₂` radians from x with
-radius `r`, centred at `x` and `y`."""
+"""Return a sector (pie wedge) between angles `θ₁` and `θ₂` radians anticlockwise
+from the x-axis with radius `r`, centred at `x` and `y`."""
 sector(θ₁, θ₂, r=1, x=0, y=0)::Shape =
     Shape(vcat(arc(θ₁, θ₂, r, x, y), Tuple{Float64,Float64}((x, y))))
 
-"""Return a filled sector (arcshape) between two angles θ₁ and θ₂ radians from
-x and two radii, `r₁` and `r₂`, centred at `x` and `y`."""
+"""Return a filled sector (arcshape) between two angles θ₁ and θ₂ radians
+anticlockwise from the x-axis, and two radii, `r₁` and `r₂`, centred at `x` and `y`."""
 arcshape(θ₁, θ₂, r₁, r₂, x=0, y=0) =
     Shape(vcat(arc(θ₁, θ₂, r₁, x, y), arc(θ₂, θ₁, r₂, x, y)))
 
