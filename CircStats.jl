@@ -121,7 +121,7 @@ Angles are in radians, unless `degrees` == true.
 "
 cresultant(a, degrees::Bool=false) = degrees ?
     sqrt(sum(sin.(deg2rad.(a)))^2 + sum(cos.(deg2rad.(a)))^2)/length(a) :
-    sqrt(sum(sin.(a))^2 + sum(cos(a))^2)/length(a)
+    sqrt(sum(sin.(a))^2 + sum(cos.(a))^2)/length(a)
 cresultant(a, w::Real, degrees::Bool=false) = degrees ?
     cresultant(a, true)*deg2rad(w)/(2sin(deg2rad(w)/2)) : cresultant(a)*w/(2sin(w/2))
 
