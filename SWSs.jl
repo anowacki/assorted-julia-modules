@@ -84,10 +84,13 @@ end
 
 """
     filter!(a::Array{SWS}, args...; kwargs...) -> a
-    filter(a::Array{SWS}, args...; kwargs...) -> a_copied
-
 Remove from the array of SWS measurements `a` any measurements which do not match
 the filters specified by the `args` and `kwargs`.
+
+    filter(a::Array{SWS}, args...; kwargs...) -> a_copied
+
+Return a copy of `a` without non-matching measurements.
+
 
 ### Arguments
 
@@ -111,9 +114,6 @@ The exception is the String field `stnm`, which accepts only a regular expressio
 ```julia
 julia> filter!(splits, evdp=(-Inf,100)); # Keep only events shallower than 100 km
 ```
-
-The first form (`filter!`) performs the filtering in-place; the second returns a
-filtered copy of `a`.
 """
 function filter!(a::Array{SWS}, args...; kwargs...)
     # args
@@ -163,6 +163,8 @@ function filter!(a::Array{SWS}, args...; kwargs...)
 end
 
 filter(a::Array{SWS}, args...; kwargs...) = filter!(deepcopy(a), args...; kwargs...)
+
+@doc (@doc filter!) filter
 
 """
     midpoint(s::SWS) -> x, y, z
