@@ -169,6 +169,6 @@ Return `true` if all points in arrays `lon` and `lat` are on the sphere.
 `degrees=false` for radians.
 """
 points_valid(lon, lat, degrees::Bool=true) =
-    degrees ? !any(abs(lat) .> 90.) : !any(abs(lat) .> pi/2.)
+    degrees ? !any(abs.(lat) .> 90.) : !any(abs.(lat) .> pi/2.)
 
 end # module
