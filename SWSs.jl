@@ -167,16 +167,25 @@ filter(a::Array{SWS}, args...; kwargs...) = filter!(deepcopy(a), args...; kwargs
 @doc (@doc filter!) filter
 
 """
-    midpoint(s::SWS) -> x, y, z
+    midpoint(s::Union{SWS,Array{SWS}}) -> x, y, z
 
 Return the midpoint of a straight line between the source and receiver in cartesian coordinates.
 """
 midpoint(s::SWS) = (s.sx + s.ex)/2, (s.sy + s.ey)/2, (s.sz + s.ez)/2
+midpoint(s::Array{SWS}) = (s[:sx] + s[:ex])/2, (s[:sy] + s[:ey])/2, (s[:sz] + s[:ez])/2
 
 """
     write_sheba(s::Union{SWS,Array{SWS}}, file)
 
-Write the shear wave splitting measurements `s` to a file `file`.
+Write the shear wave splitting measurements `s` to a file `file` in the format used
+by the SHEBA [1] program.
+
+##### References
+
+1. Wüstefeld, A., Al-Harrasi, O., Verdon, J., Wookey, J. and Kendall, J-M. (2010).
+   A strategy for automated analysis of passive microseismic data to image seismic
+   anisotropy and fracture characteristics.  Geophysical Prospecting, 58, 755–773.
+   doi:10.1111/j.1365-2478.2010.00891.x (available at https://github.com/jwookey/sheba)
 """
 function write_sheba(s::Array{SWS}, file)
     open(file, "w") do f
