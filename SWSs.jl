@@ -8,6 +8,7 @@ using Geodesy
 import SphericalGeom
 
 export
+    AbstractSWS,
     SWS,
     azimuth,
     backazimuth,
@@ -16,12 +17,14 @@ export
     surf_dist,
     write_sheba
 
+abstract type AbstractSWS end
+
 """
     SWS
 
 Type containing information about a shear wave splitting measurement.
 """
-@auto_hash_equals immutable SWS
+@auto_hash_equals immutable SWS <: AbstractSWS
     evlo::Float64 # Degrees
     evla::Float64
     evdp::Float64 # km below sea level
@@ -66,7 +69,7 @@ azimuth(s::SWS) = SphericalGeom.azimuth(s.evlo, s.evla, s.stlo, s.stla, true)
 backazimuth(s::SWS) = SphericalGeom.azimuth(s.stlo, s.stla, s.evlo, s.evla, true)
 
 "Return the surface distance between the event and station"
-surf_dist(s::Union{SWS,Array{SWS}}) = sqrt.((s[:ex] .- s[:sx]).^2 + (s[:ey] .- s[:sy]).^2)
+surf_dist(s::Union{AbstractSWS,Array{<:AbstractSWS}}) = sqrt.((s[:ex] .- s[:sx]).^2 + (s[:ey] .- s[:sy]).^2)
 "Return the incidence angle, measured away from downwards, from the event to the station"
 incidence_angle(e::ENU, s::ENU) = rad2deg(atan2(s.u - e.u, sqrt((s.e - e.e).^2 + (s.n - e.n).^2)))
 
@@ -116,7 +119,7 @@ The exception is the String field `stnm`, which accepts only a regular expressio
 julia> filter!(splits, evdp=(-Inf,100)); # Keep only events shallower than 100 km
 ```
 """
-function filter!(a::Array{SWS}, args...; kwargs...)
+function filter!(a::Array{<:AbstractSWS}, args...; kwargs...)
     # args
     for arg in args
         length(arg) == 3 && typeof(arg[1]) <: Function ||
@@ -128,9 +131,8 @@ function filter!(a::Array{SWS}, args...; kwargs...)
         field_types[f] = t
     end
     for (k,v) in kwargs
-        k in keys(field_types) ||
-            throw(ArgumentError("Keyword `$k` is not a fieldname of the SWS type"))
-        field_types[k] == String && !(typeof(v) <: Union{Regex,String}) &&
+        k in keys(field_types) && field_types[k] == String &&
+            !(typeof(v) <: Union{Regex,String}) &&
             throw(ArgumentError("Value for $k must be a String or Regex"))
     end
     delete_indices = Int[]
@@ -146,13 +148,13 @@ function filter!(a::Array{SWS}, args...; kwargs...)
         end
         for (k,v) in kwargs
             fields_done && continue
-            if field_types[k] == String
-                if !ismatch(Regex(v), getfield(s, k))
+            if haskey(field_types, k) && field_types[k] == String
+                if !ismatch(Regex(v), s[k])
                     push!(delete_indices, i)
                     fields_done = true
                 end
             else
-                if !(v[1] <= getfield(s, k) <= v[end])
+                if !(v[1] <= s[k] <= v[end])
                     push!(delete_indices, i)
                     fields_done = true
                 end
@@ -163,7 +165,7 @@ function filter!(a::Array{SWS}, args...; kwargs...)
     a
 end
 
-filter(a::Array{SWS}, args...; kwargs...) = filter!(deepcopy(a), args...; kwargs...)
+filter(a::Array{<:AbstractSWS}, args...; kwargs...) = filter!(deepcopy(a), args...; kwargs...)
 
 @doc (@doc filter!) filter
 
@@ -173,7 +175,8 @@ filter(a::Array{SWS}, args...; kwargs...) = filter!(deepcopy(a), args...; kwargs
 Return the midpoint of a straight line between the source and receiver in cartesian coordinates.
 """
 midpoint(s::SWS) = (s.sx + s.ex)/2, (s.sy + s.ey)/2, (s.sz + s.ez)/2
-midpoint(s::Array{SWS}) = (s[:sx] + s[:ex])/2, (s[:sy] + s[:ey])/2, (s[:sz] + s[:ez])/2
+midpoint(s::Array{<:AbstractSWS}) = (s[:sx] + s[:ex])/2, (s[:sy] + s[:ey])/2, (s[:sz] + s[:ez])/2
+
 # TODO: Profile this and speed it up: it's probably really slow
 """
     read_sheba(file, origin, stdps=Dict{String,<:Real}) -> s::Array{SWS}
