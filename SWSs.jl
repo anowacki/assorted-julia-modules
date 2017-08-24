@@ -12,6 +12,7 @@ export
     azimuth,
     backazimuth,
     midpoint,
+    read_sheba,
     surf_dist,
     write_sheba
 
@@ -173,6 +174,47 @@ Return the midpoint of a straight line between the source and receiver in cartes
 """
 midpoint(s::SWS) = (s.sx + s.ex)/2, (s.sy + s.ey)/2, (s.sz + s.ez)/2
 midpoint(s::Array{SWS}) = (s[:sx] + s[:ex])/2, (s[:sy] + s[:ey])/2, (s[:sz] + s[:ez])/2
+# TODO: Profile this and speed it up: it's probably really slow
+"""
+    read_sheba(file, origin, stdps=Dict{String,<:Real}) -> s::Array{SWS}
+
+Read the shear wave splitting measurements `s` from a `file` written by the SHEBA [1]
+program.  `origin` is the `Gedoesy.LLA` coordinate of the centre of the UR grid.
+
+To set the depth of stations, supply `stdps` (a `Dict{String,<:Real}`) which
+contains the station names as keys and their depths in m as the values.
+
+##### References
+
+1. Wüstefeld, A., Al-Harrasi, O., Verdon, J., Wookey, J. and Kendall, J-M. (2010).
+   A strategy for automated analysis of passive microseismic data to image seismic
+   anisotropy and fracture characteristics.  Geophysical Prospecting, 58, 755–773.
+   doi:10.1111/j.1365-2478.2010.00891.x (available at https://github.com/jwookey/sheba)
+"""
+function read_sheba(file, origin, stdps=Dict{String,Float64}())
+    d = readdlm(file)
+    d = d[.!ismatch.(r"^[#%]", string.(d[:,1])), :]
+    n = size(d, 1)
+    s = Array{SWS}(n)
+    for i in 1:n
+        elon = d[i,4]
+        elat = d[i,3]
+        slon = d[i,6]
+        slat = d[i,5]
+        edep = d[i,7]
+        sta = d[i,20]
+        phi = d[i,11]
+        dphi = d[i,12]
+        dt = d[i,13]
+        ddt = d[i,14]
+        spol = d[i,15]
+        dspol = d[i,16]
+        stdp = haskey(stdps, sta) ? stdps[sta] : 0.0
+        s[i] = SWS(elon, elat, edep, slon, slat, stdp, sta, phi, dphi, dt, ddt,
+            spol, dspol, origin)
+    end
+    s
+end
 
 """
     write_sheba(s::Union{SWS,Array{SWS}}, file)
