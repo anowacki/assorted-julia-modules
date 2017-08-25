@@ -1,6 +1,9 @@
+__precompile__()
+
 module SWSs
 
 import Base: filter!, filter, getindex
+using Base.Dates
 
 using AutoHashEquals
 using Geodesy
@@ -10,13 +13,19 @@ import SphericalGeom
 export
     AbstractSWS,
     SWS,
+    SWSTime,
     azimuth,
     backazimuth,
     midpoint,
     read_sheba,
+    read_sheba_time,
     surf_dist,
     write_sheba
 
+
+#=
+    Types
+=#
 abstract type AbstractSWS end
 
 """
@@ -63,16 +72,6 @@ function SWS(evlo, evla, evdp, stlo, stla, stdp, stnm, phi, dphi, dt, ddt, spol,
            e.e, e.n, e.u, s.e, s.n, s.u, dist, incidence)
 end
 
-"Return the azimuth from the station to the receiver"
-azimuth(s::SWS) = SphericalGeom.azimuth(s.evlo, s.evla, s.stlo, s.stla, true)
-"Return the backazimuth from the receiver to the station"
-backazimuth(s::SWS) = SphericalGeom.azimuth(s.stlo, s.stla, s.evlo, s.evla, true)
-
-"Return the surface distance between the event and station"
-surf_dist(s::Union{AbstractSWS,Array{<:AbstractSWS}}) = sqrt.((s[:ex] .- s[:sx]).^2 + (s[:ey] .- s[:sy]).^2)
-"Return the incidence angle, measured away from downwards, from the event to the station"
-incidence_angle(e::ENU, s::ENU) = rad2deg(atan2(s.u - e.u, sqrt((s.e - e.e).^2 + (s.n - e.n).^2)))
-
 "Allow indexing into arrays of SWS by using the symbol form of the fieldname"
 getindex(A::Array{SWS}, s::Symbol) = Array{typeof(getfield(A[1], s))}([getfield(a, s) for a in A])
 getindex(t::SWS, s::Symbol) = getfield(t, s)
@@ -85,6 +84,48 @@ function getindex(A::Array{SWS}, b::BitArray)
     end
     out
 end
+
+"""
+    SWSTime
+
+Type containing a shear wave splitting measurement as well as the date and time of
+the event.
+
+Access the usual SWS field with `.sws` and the date with `.time`.
+"""
+immutable SWSTime <: AbstractSWS
+    sws::SWS
+    time::DateTime
+end
+
+"""
+    getindex(s::Union{SWSTime,Array{SWSTime}}, k::Symbol) -> v
+
+Return an array of values `v` for the fields named `k` in an array of `SWSTime`s.
+
+Use `:time` for `k` to get the `DateTime`s for each measurement; otherwise, use `:sws`
+to get an array of `SWS`s; or finally use any fieldname in the `SWS` type to get that.
+"""
+getindex(s::Array{SWSTime}, k::Symbol) = k == :time ? [ss.time for ss in s] :
+                                             k == :sws ? [ss.sws for ss in s] :
+                                             [getfield(ss.sws, k) for ss in s]
+getindex(s::SWSTime, k::Symbol) = k == :time ? s.time :
+                                      k == :sws ? s.sws : getfield(s.sws, k)
+
+
+#=
+    Functions on AbstractSWSs
+=#
+
+"Return the azimuth from the station to the receiver"
+azimuth(s::AbstractSWS) = SphericalGeom.azimuth(s[:evlo], s[:evla], s[:stlo], s[:stla], true)
+"Return the backazimuth from the receiver to the station"
+backazimuth(s::AbstractSWS) = SphericalGeom.azimuth(s[:stlo], s[:stla], s[:evlo], s[:evla], true)
+
+"Return the surface distance between the event and station"
+surf_dist(s::Union{AbstractSWS,Array{<:AbstractSWS}}) = sqrt.((s[:ex] .- s[:sx]).^2 + (s[:ey] .- s[:sy]).^2)
+"Return the incidence angle, measured away from downwards, from the event to the station"
+incidence_angle(e::ENU, s::ENU) = rad2deg(atan2(s.u - e.u, sqrt((s.e - e.e).^2 + (s.n - e.n).^2)))
 
 """
     filter!(a::Array{SWS}, args...; kwargs...) -> a
@@ -174,12 +215,12 @@ filter(a::Array{<:AbstractSWS}, args...; kwargs...) = filter!(deepcopy(a), args.
 
 Return the midpoint of a straight line between the source and receiver in cartesian coordinates.
 """
-midpoint(s::SWS) = (s.sx + s.ex)/2, (s.sy + s.ey)/2, (s.sz + s.ez)/2
-midpoint(s::Array{<:AbstractSWS}) = (s[:sx] + s[:ex])/2, (s[:sy] + s[:ey])/2, (s[:sz] + s[:ez])/2
+midpoint(s::Union{AbstractSWS,Array{<:AbstractSWS}}) =
+    (s[:sx] + s[:ex])/2, (s[:sy] + s[:ey])/2, (s[:sz] + s[:ez])/2
 
 # TODO: Profile this and speed it up: it's probably really slow
 """
-    read_sheba(file, origin, stdps=Dict{String,<:Real}) -> s::Array{SWS}
+    read_sheba(file, origin, stdps=Dict{String,<:Real}) -> s::Vector{SWS}
 
 Read the shear wave splitting measurements `s` from a `file` written by the SHEBA [1]
 program.  `origin` is the `Gedoesy.LLA` coordinate of the centre of the UR grid.
@@ -220,7 +261,34 @@ function read_sheba(file, origin, stdps=Dict{String,Float64}())
 end
 
 """
-    write_sheba(s::Union{SWS,Array{SWS}}, file)
+    read_sheba_time(file, args...; comment=r\"^[#%]\") -> st::Vector{SWSTime}
+
+Read results from a SHEBA-formatted file, including the date and time of the
+events listed therein, returning the values `st`.
+
+Optionally specify the Regex used to determine which lines are comments with `comment`.
+"""
+function read_sheba_time(file, args...; comment=r"^[#%]")
+    s = read_sheba(file, args...)
+    n = length(s)
+    st = Vector{SWSTime}(n)
+    data = readdlm(file)
+    data = data[.!ismatch.(comment, string.(data[:,1])), :]
+    size(data, 1) == n || error("Length of splits read ($n) does "*
+        "not match the number of non-comment lines ($(size(data, 1))) in file '$file'")
+    for i in 1:n
+        y = data[i,1]÷1000
+        d = data[i,1]%1000
+        h = data[i,2]÷100
+        m = data[i,2]%100
+        date = Date(y) + Day(d)
+        st[i] = SWSTime(s[i], DateTime(year(date), month(date), day(date), h, m))
+    end
+    st
+end
+
+"""
+    write_sheba(s::Array{<:AbstractSWS}, file)
 
 Write the shear wave splitting measurements `s` to a file `file` in the format used
 by the SHEBA [1] program.
@@ -232,19 +300,32 @@ by the SHEBA [1] program.
    anisotropy and fracture characteristics.  Geophysical Prospecting, 58, 755–773.
    doi:10.1111/j.1365-2478.2010.00891.x (available at https://github.com/jwookey/sheba)
 """
-function write_sheba(s::Array{SWS}, file)
+function write_sheba(s::Array{<:AbstractSWS}, file)
     open(file, "w") do f
         println(f, "%  DATE TIME    EVLA    EVLO    STLA    STLO    EVDP    DIST     AZI     BAZ    FAST   DFAST    TLAG   DTLAG    SPOL   DSPOL    WBEG    WEND  STAT %  DATE TIME EIGORIG EIGCORR      Q     SNR   NDF   STAT SNR")
         for ss in s
-            println(f, "DATE TIME ", ss.evla, " ", ss.evlo, " ", ss.stla, " ",
-                ss.stlo, " ", ss.evdp, " ",
-                SphericalGeom.delta(ss.evlo, ss.evla, ss.stlo, ss.stla, true), " ",
+            datetime = if typeof(ss) <: SWSTime
+                t = ss[:time]
+                @sprintf("%04d%03d %02d%02d", year(t), _dayofyear(t), hour(t), minute(t))
+            else
+                "DATE TIME"
+            end
+            println(f, datetime, " ", ss[:evla], " ", ss[:evlo], " ", ss[:stla], " ",
+                ss[:stlo], " ", ss[:evdp], " ",
+                SphericalGeom.delta(ss[:evlo], ss[:evla], ss[:stlo], ss[:stla], true), " ",
                 azimuth(ss), " ", backazimuth(ss), " ",
-                ss.phi, " ", ss.dphi, " ", ss.dt, " ", ss.ddt, " ", ss.spol, " ",
-                ss.dspol, " WBEG WEND % ", ss.stnm, " DATE TIME EIGORIG EIGCORR Q SNR NDF ",
-                ss.stnm, " SNR")
+                ss[:phi], " ", ss[:dphi], " ", ss[:dt], " ", ss[:ddt], " ", ss[:spol], " ",
+                ss[:dspol], " WBEG WEND % ", ss[:stnm], " DATE TIME EIGORIG EIGCORR Q SNR NDF ",
+                ss[:stnm], " SNR")
         end
     end
 end
+
+"""
+    _dayofyear(d::DateTime) -> doy::Int
+
+Return the day of the year of a `DateTime` `d`."""
+_dayofyear(d::DateTime) = Dates.value(Date(year(d), month(d), day(d))
+                                       - Date(year(d)) + Day(1))
 
 end # module
