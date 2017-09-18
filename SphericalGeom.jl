@@ -64,7 +64,7 @@ radius `lon`, `lat` and `r`.
 
 If `r` is not given, points are returned on the unit sphere
 """
-function geog2cart(lon, lat, r, degrees::Bool=true)
+function geog2cart(lon, lat, r::Number, degrees::Bool=true)
     points_valid(lon, lat, degrees) || error("geog2cart: Points are not on the sphere")
     degrees && begin lon, lat = deg2rad(lon), deg2rad(lat) end
     x = r.*cos(lon).*cos(lat)
@@ -74,7 +74,7 @@ function geog2cart(lon, lat, r, degrees::Bool=true)
 end
 geog2cart{A<:AbstractArray,B<:AbstractArray}(lon::A, lat::B, degrees::Bool=true) =
     geog2cart(lon, lat, ones(lon), degrees)
-geog2cart(lon, lat, degrees::Bool=true) = geog2cart(lon, lat, one(lon))
+geog2cart(lon, lat, degrees::Bool=true) = geog2cart(lon, lat, one(lon), degrees)
 
 
 """
