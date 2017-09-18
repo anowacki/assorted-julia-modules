@@ -20,13 +20,13 @@ export
     write_record
 
 # Standard Fortran number sizes
-typealias Real4 Float32
-typealias Real8 Float64
-typealias Integer4 Int32
-typealias Integer8 Int64
-typealias Complex4 Complex64
-typealias Complex8 Complex128
-typealias Character String
+const Real4 = Float32
+const Real8 = Float64
+const Integer4 = Int32
+const Integer8 = Int64
+const Complex4 = Complex64
+const Complex8 = Complex128
+const Character = String
 
 const len4 = sizeof(Integer4)
 const len8 = sizeof(Integer8)
@@ -43,10 +43,10 @@ Return the next record in the stream `f`, in the format of `T`.  This means,
 function read_record(f::IOStream, T::DataType, dims...)
     all(Bool[typeof(dim) <: Integer for dim in dims]) || error("`dims` must be integers")
     d, len = read_raw(f)
-    Tlen = sizeof(T)
     if T <: String
         return String(d)
     end
+    Tlen = sizeof(T)
     rank = length(dims)
     if rank == 0
         len == Tlen || error("Record at $(position(f) - len4 - len) is not correct " *
