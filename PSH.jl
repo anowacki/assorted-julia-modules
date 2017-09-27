@@ -14,11 +14,10 @@ export psh, psh!
     psh_matrix!(α, β, p, M) -> M
 
 Fill in the PSH transfer matrix `M`, given the P-wave velocity `α`, S-wave velocity `β`
-and the slowness `p`.  Velocities are in km/s, slowness in s/°.
+and the slowness `p`.  Velocities are in km/s, slowness in s/km.
 """
 function psh_matrix!{T}(a, b, p, M::AbstractArray{T,2})
     size(M) == (3,3) || error("Transfer matrix must have size (3,3)")
-    p /= 111.1 # Convert to s/km
     isevanescent(a, b, p) &&
         warn("psh_matrix!: Evanescent wave (vp=$a, vs=$b, p=$p)")
     qa = sqrt(1/a^2 - p^2)
@@ -29,8 +28,8 @@ function psh_matrix!{T}(a, b, p, M::AbstractArray{T,2})
     Vsz = p*b
     Vsr = (1 - 2b^2*p^2)/(2b*qb)
     Vht = 1/2
-    M[:,:] .= [Vpz Vsz  0 
-               Vpr Vsr  0 
+    M[:,:] .= [Vpz Vsz  0
+               Vpr Vsr  0
                 0   0  Vht]
 end
 
@@ -38,7 +37,7 @@ end
     psh_matrix(α, β, p) -> M
 
 Return the PSH transfer matrix M, given the P-wave velocity `α`, S-wave velocity `β`
-and the slowness `p`.  Velocities are in km/s, slowness in s/°
+and the slowness `p`.  Velocities are in km/s, slowness in s/km.
 """
 psh_matrix(a, b, p) = psh_matrix!(a, b, p, Array{Complex{Float64}}(3,3))
 
@@ -50,7 +49,7 @@ Return true if the combination of Vp `α`, Vs `β` and slowness `p` lead to an e
 wave at the surface.
 """
 function isevanescent(a, b, p)
-    p = Float64(p/111.)
+    p = Float64(p)
     a, b = Float64(a), Float64(b)
     1/a^2 - p^2 <= 0.0 || 1/b^2 - p^2 <= 0.0
 end
@@ -60,7 +59,7 @@ end
     psh!(Z, R, T, α, β, p) -> P, S, H
 
 Converts three arrays, `SACtr`s or arrays of `SACtr`s in ZRT orientation into
-PSH orientation, using the supplied Vp `α`, Vs `β` (km/s) and slowness `p` (s/°).
+PSH orientation, using the supplied Vp `α`, Vs `β` (km/s) and slowness `p` (s/km).
 
 Traces are updated to be in the order P (like vertical), S (like radial), H (like transverse).
 """
@@ -88,7 +87,7 @@ end
     psh(Z, R, T, α, β, p) -> P, S, H
 
 Convert three arrays, `SACtr`s or arrays of `SACtr`s in ZRT orientation into
-PSH orientation, using the supplied Vp `α`, Vs `β` (km/s) and slowness `p` (s/°),
+PSH orientation, using the supplied Vp `α`, Vs `β` (km/s) and slowness `p` (s/km),
 where `P` is parallel to P-wave motion positive away from the source, `S` is parallel
 to SV and `H` is the transverse direction.
 """
