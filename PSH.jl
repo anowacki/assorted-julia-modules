@@ -73,7 +73,10 @@ function psh!{F}(Z::Array{F,1}, R::Array{F,1}, T::Array{F,1}, a, b, p)
     Z, R, T
 end
 function psh!(Z::SACtr, R::SACtr, T::SACtr, a, b, p)
-    psh!(Z.t, R.t, T.t, a, b, p)
+    P, S, H = psh(Z.t, R.t, T.t, a, b, p)
+    Z.t .= real.(P)
+    R.t .= real.(S)
+    T.t .= real.(H)
     for t in (Z, R, T) SAC.update_headers!(t) end
     Z.kcmpnm, R.kcmpnm, T.kcmpnm = "P", "S", "H"
     Z, R, T
