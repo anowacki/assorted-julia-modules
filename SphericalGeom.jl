@@ -16,6 +16,9 @@ export
     cart2geog,
     delta,
     geog2cart,
+    great_circle,
+    great_circle_azimuth,
+    project_to_gcp,
     sample,
     step
 
@@ -64,17 +67,17 @@ radius `lon`, `lat` and `r`.
 
 If `r` is not given, points are returned on the unit sphere
 """
-function geog2cart(lon, lat, r::Number, degrees::Bool=true)
+function geog2cart(lon, lat, r, degrees::Bool=true)
     points_valid(lon, lat, degrees) || error("geog2cart: Points are not on the sphere")
-    degrees && begin lon, lat = deg2rad(lon), deg2rad(lat) end
-    x = r.*cos(lon).*cos(lat)
-    y = r.*sin(lon).*cos(lat)
-    z = r.*sin(lat)
+    degrees && begin lon, lat = deg2rad.(lon), deg2rad.(lat) end
+    x = r.*cos.(lon).*cos.(lat)
+    y = r.*sin.(lon).*cos.(lat)
+    z = r.*sin.(lat)
     x, y, z
 end
 geog2cart{A<:AbstractArray,B<:AbstractArray}(lon::A, lat::B, degrees::Bool=true) =
     geog2cart(lon, lat, ones(lon), degrees)
-geog2cart(lon, lat, degrees::Bool=true) = geog2cart(lon, lat, one(lon), degrees)
+geog2cart(lon, lat, degrees::Bool=true) = geog2cart(lon, lat, one.(lon), degrees)
 
 
 """
@@ -159,6 +162,61 @@ function sample(d=5, degrees::Bool=true)
     degrees ? (lon[1:n], lat[1:n]) : (rad2deg(lon[1:n], rad2deg(lat[1:n])))
 end
 
+"""
+    project_to_gcp(lon_gc, lat_gc, lon_p, lat_p, degrees::Bool=true) -> lon, lat
+
+Project the point at (`lon_p`, `lat_p`) onto the great circle defined by the
+pole to the circle (`lon_gc`, `lat_gc`), returning the point (`lon`, `lat`).
+"""
+function project_to_gcp(long, latg, lonp, latp, degrees::Bool=true)
+    # Convert to vectors
+    g = Float64[geog2cart(long, latg, degrees)...]
+    p = Float64[geog2cart(lonp, latp, degrees)...]
+    # Pole to the gcp containing g and p
+    gp = g × p
+    # Check for point and pole being the same
+    norm(gp) ≈ 0. && error("Point and pole to plane the same")
+    normalize!(gp)
+    pp = gp × g
+    acos(p⋅pp) > π/2 && (pp *= -1)
+    lon, lat, r = cart2geog(pp[1], pp[2], pp[3], degrees)
+    lon, lat
+end
+
+"""
+    great_circle(lon, lat, azimuth, degrees::Bool=true) -> lon_gc, lat_gc
+    great_circle(lon1, lat1, lon2, lat2, degrees::Bool=true) -> lon_gc, lat_gc
+
+Determine the great circle, defined by the pole at (`lon_gc`, `lat_gc`), given by
+either (the first form), a point and an azimuth, or (the second) two points on the
+sphere.
+"""
+function great_circle(lon, lat, azimuth, degrees::Bool=true)
+    dist = degrees ? 45 : π/4
+    lonp, latp = step(lon, lat, azimuth, dist, degrees)
+    great_circle(lon, lat, lonp, latp, degrees)
+end
+function great_circle(lon1, lat1, lon2, lat2, degrees::Bool=true)
+    p1 = Float64[geog2cart(lon1, lat1, degrees)...]
+    p2 = Float64[geog2cart(lon2, lat2, degrees)...]
+    p1 ≈ p2 && error("Two points overlap (are: $p1 and $p2)")
+    delta(lon1, lat1, lon2, lat2, degrees) ≈ (degrees ? 180 : π) &&
+        error("Points are antipodal (are: $p1 and $p2)")
+    gp = p1 × p2
+    lon, lat, r = cart2geog(gp[1], gp[2], gp[3], degrees)
+    lon, lat
+end
+
+"""
+    great_circle_azimuth(long, latg, lonp, latp, degrees::Bool=true) -> azimuth
+
+Return the local `azimuth` of the great circle with pole (`long`, `latg`) where
+the point (`lonp`, `latp`) projects onto the great circle.
+"""
+function great_circle_azimuth(long, latg, lonp, latp, degrees::Bool=true)
+    lon, lat = project_to_gcp(long, latg, lonp, latp, degrees)
+    mod(azimuth(lon, lat, long, latg, degrees) + (degrees ? 90 : π/2), (degrees ? 360 : 2π))
+end
 
 """
 `points_valid(lon, lat, degrees::Bool=true) -> ::Bool`
