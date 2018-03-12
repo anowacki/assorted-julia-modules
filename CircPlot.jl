@@ -130,6 +130,8 @@ Unexported routines
 into bins `binwidth` wide.  If `axial` is `true`, then directions have
 π symmetry."""
 function fit_hist(a, binwidth, degrees::Bool, axial::Bool)
+    binwidth isa Bool &&
+        throw(ArgumentError("`binwidth` supplied as a `Bool`, but should be a real number"))
     n = (degrees ? round(Int, 360/binwidth) : round(Int, 2pi/binwidth))
     n = max(1, n)
     binwidth = 2pi/n
