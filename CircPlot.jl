@@ -85,9 +85,9 @@ plotting the bars.
 """
 function cplot_histogram(a, binwidth, degrees::Bool=false;
                          azimuth::Bool=false, axial::Bool=false,
-                         circ=nothing,
+                         weights=ones(a), circ=nothing,
                          kwargs...)
-    hist = fit_hist(a, binwidth, degrees, axial)
+    hist = fit_hist(a, binwidth, degrees, axial, weights=weights)
     n = length(hist.weights)
     edges = hist.edges[1]
     azimuth && (edges = π/2 .- collect(edges))
@@ -109,16 +109,21 @@ Set `axial` to `true` for data with π-ambiguity and `azimuth` to `true` if data
 clockwise from north.
 
 `scale` determine what length to scale the radii by, or alternatively set `maxr` to
-the radius (in plot units) of the maximum bin.  Set `minobs` to be the minimum
+the radius (in plot units) of the maximum bin.  Set `minweight` to be the minimum
 bar count required for the plot to fill the entire maximum radius from `maxr`.
 """
 function chistogram(a, binwidth, degrees=false, x=0, y=0;
-        axial=false, azimuth=false, scale=1, maxr=nothing, minobs=1)
-    hist = fit_hist(a, binwidth, degrees, axial)
+        weights=ones(a), axial=false, azimuth=false, scale=1, maxr=nothing,
+        minweight=1, minobs=nothing)
+    if minobs != nothing
+        warning("`minobs` is deprecated: use `minweight` instead")
+        minweight = minobs
+    end
+    hist = fit_hist(a, binwidth, degrees, axial, weights=weights)
     n = length(hist.weights)
     edges = hist.edges[1]
     R = maximum(hist.weights)
-    maxr != nothing && (scale = maxr/max(minobs, R))
+    maxr != nothing && (scale = maxr/max(minweight, R))
     azimuth && (edges = π/2 .- collect(edges))
     sector.(edges[1:n], edges[2:n+1], hist.weights*scale, x, y)
 end
@@ -126,12 +131,18 @@ end
 #=
 Unexported routines
 =#
-"""Return a `StatsBase.Histogram` with the results of binning the angles `a`
+"""    fit_hist(a, binwidth, degrees=false, axial=false; weights=ones(a))
+
+Return a `StatsBase.Histogram` with the results of binning the angles `a`
 into bins `binwidth` wide.  If `axial` is `true`, then directions have
-π symmetry."""
-function fit_hist(a, binwidth, degrees::Bool, axial::Bool)
+π symmetry.  Optionally sypply a `weights` array containing the weighting
+for each value in `a`."""
+function fit_hist(a, binwidth, degrees::Bool, axial::Bool;
+                  weights=ones(eltype(a), length(a)))
     binwidth isa Bool &&
         throw(ArgumentError("`binwidth` supplied as a `Bool`, but should be a real number"))
+    length(weights) == length(a) ||
+        throw(ArgumentError("`weights` must have same length as number of angles"))
     n = (degrees ? round(Int, 360/binwidth) : round(Int, 2pi/binwidth))
     n = max(1, n)
     binwidth = 2pi/n
@@ -143,7 +154,8 @@ function fit_hist(a, binwidth, degrees::Bool, axial::Bool)
     # in which angles are given.
     data .+= 10*eps(eltype(a))
     axial && (data .= mod.(data, pi))
-    h = StatsBase.fit(StatsBase.Histogram, data, bins, closed=:left)
+    h = StatsBase.fit(StatsBase.Histogram, data,
+                      StatsBase.FrequencyWeights(weights), bins, closed=:left)
     axial && (h.weights[end÷2+1:end] .= h.weights[1:end÷2])
     h
 end
