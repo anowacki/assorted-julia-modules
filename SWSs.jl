@@ -218,6 +218,16 @@ Return the midpoint of a straight line between the source and receiver in cartes
 midpoint(s::Union{AbstractSWS,Array{<:AbstractSWS}}) =
     (s[:sx] + s[:ex])/2, (s[:sy] + s[:ey])/2, (s[:sz] + s[:ez])/2
 
+"""
+    midpoint_lonlat(s::Union{SWS,Array{SWS}})
+
+Return the midpoint of a straight line between the source and receiver
+in (longitude, latitude, depth) coordinates.  This assumes that distances are small
+and longitude and latitude can be treated as cartesian.
+"""
+midpoint_lonlat(s::Union{SWS,Array{SWS}}) = 
+    (s[:evlo] + s[:stlo])/2, (s[:evla] + s[:evla])/2 + (s[:evdp] - s[:stel]/1000)/2
+
 # TODO: Profile this and speed it up: it's probably really slow
 """
     read_sheba(file, origin, stdps=Dict{String,<:Real}) -> s::Vector{SWS}
