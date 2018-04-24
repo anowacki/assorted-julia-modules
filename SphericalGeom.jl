@@ -9,6 +9,8 @@ module SphericalGeom
 
 __precompile__()
 
+import StaticArrays: SVector
+
 import Base.step
 
 export
@@ -30,75 +32,92 @@ Compute the longitude, latitude and radius given the cartesian coordinates `x`,
 through lat = 90°.
 """
 function cart2geog(x, y, z, degrees::Bool=true)
-    r = sqrt(x.^2 + y.^2 + z.^2)
+    r = sqrt(x^2 + y^2 + z^2)
     r == 0. && return zero(x), zero(x), zero(x)
     lon = atan2(y, x)
-    lat = asin(z./r)
+    lat = asin(z/r)
     degrees ? (rad2deg(lon), rad2deg(lat), r) : (lon, lat, r)
 end
 
+function cart2geog(x::AbstractArray, y::AbstractArray, z::AbstractArray, degrees::Bool=true)
+    dims = size(x)
+    dims == size(y) == size(z) || throw(ArgumentError("All arrays must have same length"))
+    T = promote_type(float.(eltype.((x, y, z)))...)
+    lon, lat, r = Array{T}(dims), Array{T}(dims), Array{T}(dims)
+    for i in eachindex(lon)
+        lon[i], lat[i], r[i] = cart2geog(x[i], y[i], z[i], degrees)
+    end
+    lon, lat, r
+end
+
 """
-`delta(lon1, lat1, lon2, lat2, degrees::Bool=true) -> d`
+    delta(lon1, lat1, lon2, lat2, degrees::Bool=true) -> d
 
 Compute the angular distance `d` on the sphere between two points, (`lon1`, `lat1`)
 and (`lon2`, `lat2`).  Points and distance are read and returned in degrees
 by default; use `degrees=false` for radians.
 """
 function delta(lon1, lat1, lon2, lat2, degrees::Bool=true)
-    points_valid([lon1; lon2], [lat1; lat2], degrees) ||
-        error("delta: Points are not on the sphere")
     if degrees
         lon1, lat1, lon2, lat2 = deg2rad(lon1), deg2rad(lat1), deg2rad(lon2), deg2rad(lat2)
     end
     d = atan2(sqrt(
-               (cos(lat2).*sin(lon2-lon1)).^2 + (cos(lat1).*sin(lat2) -
-                sin(lat1).*cos(lat2).*cos(lon2-lon1)).^2),
-               sin(lat1).*sin(lat2) + cos(lat1).*cos(lat2).*cos(lon2-lon1)
+               (cos(lat2)*sin(lon2-lon1))^2 + (cos(lat1)*sin(lat2) -
+                sin(lat1)*cos(lat2)*cos(lon2-lon1))^2),
+               sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2)*cos(lon2-lon1)
               )
     degrees ? rad2deg(d) : d
 end
 
 """
     geog2cart(lon, lat, r, degrees::Bool=true) -> x, y, z
-    geog2cart(lon, lat, degrees::Bool) -> x, y, z
+    geog2cart(lon, lat, degrees::Bool=true) -> x, y, z
 
 Return the cartesian coordinates given the geographic longitude, latitude and
 radius `lon`, `lat` and `r`.
 
-If `r` is not given, points are returned on the unit sphere
+If `r` is not given, points are returned on the unit sphere.
 """
 function geog2cart(lon, lat, r, degrees::Bool=true)
     points_valid(lon, lat, degrees) || error("geog2cart: Points are not on the sphere")
-    degrees && begin lon, lat = deg2rad.(lon), deg2rad.(lat) end
-    x = r.*cos.(lon).*cos.(lat)
-    y = r.*sin.(lon).*cos.(lat)
-    z = r.*sin.(lat)
+    degrees && begin lon, lat = deg2rad(lon), deg2rad(lat) end
+    x = r*cos(lon)*cos(lat)
+    y = r*sin(lon)*cos(lat)
+    z = r*sin(lat)
     x, y, z
 end
-geog2cart{A<:AbstractArray,B<:AbstractArray}(lon::A, lat::B, degrees::Bool=true) =
+function geog2cart(lon::AbstractArray, lat::AbstractArray, r::AbstractArray, degrees::Bool=true)
+    size(lon) == size(lat) == size(r) ||
+        throw(ArgumentError("Sizes of lon, lat and r must be the same"))
+    T = promote_type(float.(eltype.((lon, lat, r)))...)
+    x = Array{T}(size(lon))
+    y, z = similar(x), similar(x)
+    for i in eachindex(lon)
+        x[i], y[i], z[i] = geog2cart(lon[i], lat[i], r[i], degrees)
+    end
+    x, y, z
+end
+geog2cart(lon::AbstractArray, lat::AbstractArray, degrees::Bool=true) =
     geog2cart(lon, lat, ones(lon), degrees)
-geog2cart(lon, lat, degrees::Bool=true) = geog2cart(lon, lat, one.(lon), degrees)
 
 
 """
-`step(lon, lat, az, delta, degrees::Bool=true) -> lon1, lat1`
+    step(lon, lat, az, delta, degrees::Bool=true) -> lon1, lat1
 
 Compute the end point (`lon1`, `lat1`) reached by travelling on the sphere along
 azimuth `az` for `delta` angular distance.  Points, angles and distance are read
 and returned in degrees by default; use `degrees=false` for radians.
 """
 function step(lon, lat, az, delta, degrees::Bool=true)
-    points_valid(lon, lat, degrees) ||
-        error("step: Points are not on the sphere")
     if degrees
-        all(delta .<= 180.) || error("step: delta cannot be more than 180°")
+        delta <= 180 || error("step: delta cannot be more than 180°")
         lon, lat, az, delta = deg2rad(lon), deg2rad(lat), deg2rad(az), deg2rad(delta)
     else
-        all(delta .<= pi) || error("step: delta cannot be more than π radians")
+        delta <= pi || error("step: delta cannot be more than π radians")
     end
-    lat2 = asin(sin(lat).*cos(delta) + cos(lat).*sin(delta).*cos(az))
-    lon2 = lon + atan2(sin(az).*sin(delta).*cos(lat),
-                        cos(delta)-sin(lat).*sin(lat2))
+    lat2 = asin(sin(lat)*cos(delta) + cos(lat)*sin(delta)*cos(az))
+    lon2 = lon + atan2(sin(az)*sin(delta)*cos(lat),
+                        cos(delta)-sin(lat)*sin(lat2))
     if degrees
         lon2, lat2 = rad2deg(lon2), rad2deg(lat2)
     end
@@ -106,25 +125,23 @@ function step(lon, lat, az, delta, degrees::Bool=true)
 end
 
 """
-`azimuth(lon1, lat1, lon2, lat2, degrees::Bool=true) -> az`
+    azimuth(lon1, lat1, lon2, lat2, degrees::Bool=true) -> az
 
 Compute the azimuth `az` from point (`lon1`, `lat1`) to (`lon2`, `lat2`) on the sphere.
 Points and azimuth are read and returned in degrees by default; use `degrees=false`
 for radians.
 """
 function azimuth(lon1, lat1, lon2, lat2, degrees::Bool=true)
-    points_valid([lon1; lon2], [lat1; lat2], degrees) ||
-        error("azimuth: Points are not on the sphere")
     if degrees
         lon1, lat1, lon2, lat2 = deg2rad(lon1), deg2rad(lat1), deg2rad(lon2), deg2rad(lat2)
     end
-    azimuth = atan2(sin(lon2-lon1).*cos(lat2),
-                    cos(lat1).*sin(lat2) - sin(lat1).*cos(lat2).*cos(lon2-lon1))
+    azimuth = atan2(sin(lon2-lon1)*cos(lat2),
+                    cos(lat1)*sin(lat2) - sin(lat1)*cos(lat2)*cos(lon2-lon1))
     degrees ? rad2deg(azimuth) : azimuth
 end
 
 """
-`sample(d=5, degrees::Bool=true) -> lon[], lat[]`
+    sample(d=5, degrees::Bool=true) -> lon[], lat[]
 
 Create a set of points which approximately evenly sample the sphere, spaced about `d`
 degrees apart (default 5°).  Returns arrays `lon` and `lat` containing the longitude
@@ -170,13 +187,13 @@ pole to the circle (`lon_gc`, `lat_gc`), returning the point (`lon`, `lat`).
 """
 function project_to_gcp(long, latg, lonp, latp, degrees::Bool=true)
     # Convert to vectors
-    g = Float64[geog2cart(long, latg, degrees)...]
-    p = Float64[geog2cart(lonp, latp, degrees)...]
+    g = SVector(geog2cart(long, latg, degrees)...)
+    p = SVector(geog2cart(lonp, latp, degrees)...)
     # Pole to the gcp containing g and p
     gp = g × p
     # Check for point and pole being the same
     norm(gp) ≈ 0. && error("Point and pole to plane the same")
-    normalize!(gp)
+    gp = normalize(gp)
     pp = gp × g
     acos(p⋅pp) > π/2 && (pp *= -1)
     lon, lat, r = cart2geog(pp[1], pp[2], pp[3], degrees)
@@ -197,8 +214,8 @@ function great_circle(lon, lat, azimuth, degrees::Bool=true)
     great_circle(lon, lat, lonp, latp, degrees)
 end
 function great_circle(lon1, lat1, lon2, lat2, degrees::Bool=true)
-    p1 = Float64[geog2cart(lon1, lat1, degrees)...]
-    p2 = Float64[geog2cart(lon2, lat2, degrees)...]
+    p1 = SVector(geog2cart(lon1, lat1, degrees)...)
+    p2 = SVector(geog2cart(lon2, lat2, degrees)...)
     p1 ≈ p2 && error("Two points overlap (are: $p1 and $p2)")
     delta(lon1, lat1, lon2, lat2, degrees) ≈ (degrees ? 180 : π) &&
         error("Points are antipodal (are: $p1 and $p2)")
@@ -219,7 +236,7 @@ function great_circle_azimuth(long, latg, lonp, latp, degrees::Bool=true)
 end
 
 """
-`points_valid(lon, lat, degrees::Bool=true) -> ::Bool`
+    points_valid(lon, lat, degrees::Bool=true) -> ::Bool
 
 Return `true` if all points in arrays `lon` and `lat` are on the sphere.
 `lon` is ignored, but `lat` is checked to see if points are in the range
