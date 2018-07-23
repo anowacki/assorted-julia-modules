@@ -1,3 +1,5 @@
+__precompile__()
+
 """
 module SphericalGeom provides routines for making calulations on a sphere.
 
@@ -6,8 +8,6 @@ argument `degrees` which may be set to false for radians.  This is advantageous
 when making repeated calculations or when using large arrays in terms of speed.
 """
 module SphericalGeom
-
-__precompile__()
 
 import StaticArrays: SVector
 
@@ -155,27 +155,27 @@ function sample(d=5, degrees::Bool=true)
     n = 1
     dlat = d
     dlon = dlat
-    lat[n] = 90.
-    lon[n] = 0.
-    lon_i = 0.
+    lat[n] = 90.0
+    lon[n] = 0.0
+    lon_i = 0.0
     lat_i = lat[1] - dlat
-    while lat_i > -90.
-        dlon_i = dlon/sind(90. - lat_i)
-        n_i = round(Int, 360./dlon_i)
+    while lat_i > -90.0
+        dlon_i = dlon/sind(90.0 - lat_i)
+        n_i = round(Int, 360.0/dlon_i)
         for i = 1:n_i
             n += 1
             n <= nmax || error("Number of points greater than predetermined limits ($nmax)")
             lat[n] = lat_i
             lon[n] = lon_i
-            lon_i = mod(lon_i + dlon_i, 360.)
+            lon_i = mod(lon_i + dlon_i, 360.0)
         end
-        lon_i = mod(lon_i + dlon_i, 360.)
+        lon_i = mod(lon_i + dlon_i, 360.0)
         lat_i = lat_i - dlat
     end
     n += 1
-    lat[n] = -90.
-    lon[n] = 0.
-    lon[1:n] = mod(lon[1:n] + 180., 360.) - 180.
+    lat[n] = -90.0
+    lon[n] = 0.0
+    lon[1:n] = mod(lon[1:n] + 180.0, 360.0) - 180.0
     degrees ? (lon[1:n], lat[1:n]) : (rad2deg(lon[1:n], rad2deg(lat[1:n])))
 end
 
