@@ -20,6 +20,7 @@ export
     geog2cart,
     great_circle,
     great_circle_azimuth,
+    nearest_to_gcp,
     project_to_gcp,
     sample,
     step
@@ -198,6 +199,29 @@ function project_to_gcp(long, latg, lonp, latp, degrees::Bool=true)
     acos(p⋅pp) > π/2 && (pp *= -1)
     lon, lat, r = cart2geog(pp[1], pp[2], pp[3], degrees)
     lon, lat
+end
+
+"""
+    nearest_to_gcp(lon_gc, lat_gc, lons, lats, degrees::Bool=trye) -> i, lon, lat
+
+Find the nearest point to the great circle defined by the pole (`lon_gc`, `lat_gc`)
+which occurs in the vectors `lons` and `lats`.  The index `i` and values at that index
+`lon` and `lat` are returned.
+"""
+function nearest_to_gcp(long, latg, lons::AbstractArray, lats::AbstractArray, degrees::Bool=true)
+    length(lons) == length(lats) ||
+        throw(ArgumentError("lons and lats must have same number of points"))
+    mindist = Inf
+    imin = 0
+    for (i, (lon, lat)) in enumerate(zip(lons, lats))
+        lonp, latp = project_to_gcp(long, latg, lon, lat, degrees)
+        dist = delta(lon, lat, lonp, latp, degrees)
+        if dist < mindist
+            mindist = dist
+            imin = i
+        end
+    end
+    imin, lons[imin], lats[imin]
 end
 
 """
