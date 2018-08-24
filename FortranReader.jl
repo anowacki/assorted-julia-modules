@@ -114,9 +114,11 @@ function write_record(f::IOStream, T::DataType, xs...)
         "Choose one of $permissible_types")
     bytes_written = 0
     for x in xs
-        n = Integer4(sizeof(eltype(T))*length(x))
+        n = T == Character ? Integer4(length(x)) : Integer4(sizeof(eltype(T))*length(x))
         write(f, n)
-        if ndims(x) > 0
+        if T == Character
+            write(f, x)
+        elseif ndims(x) > 0
             write(f, convert(Array{T}, x))
         else
             write(f, convert(T, x))
