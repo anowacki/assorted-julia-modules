@@ -24,8 +24,8 @@ const Real4 = Float32
 const Real8 = Float64
 const Integer4 = Int32
 const Integer8 = Int64
-const Complex4 = Complex64
-const Complex8 = Complex128
+const Complex4 = Complex{Float32}
+const Complex8 = Complex{Float64}
 const Character = String
 
 const len4 = sizeof(Integer4)
