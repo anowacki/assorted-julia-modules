@@ -32,9 +32,7 @@ Use Plots to plot a set of points on the circumference of the unit circle.
 
 Use `azimuth=true` to plot angles clockwise from north.
 
-Use `hold=true` to overlay additional plots on an existing plot.
-
-Supply any additional arguments to `PyPlot.plot()` as keyword arguments; for example,
+Supply any additional arguments to `Plots.plot()` as keyword arguments; for example,
 to set the size of points, do
 
     julia> cplot_pts(angles; markersize=20)
@@ -45,14 +43,14 @@ function cplot_pts(a, degrees::Bool=false;
     circum = 0:0.01:2π
     markerstyle = (0.1,:blue)
     degrees && (a = deg2rad.(a))
-    azimuth && (a = π/2 - a)
+    azimuth && (a = π/2 .- a)
     R += padding
     x0, y0 = centre
     p = plot(aspect_ratio=:equal,
         xlim=(-R+x0,R+x0), ylim=(-R+y0,R+y0), legend=false)
-    line && plot!(p, x0+cos.(circum), y0+sin.(circum), l=:black)
-    scatter!(p, x0+cos.(a), y0+sin.(a), m=markerstyle; kwargs...)
-    axial && scatter!(p, x0+cos.(a+π), y0+sin.(a+π), m=markerstyle; kwargs...)
+    line && plot!(p, x0.+cos.(circum), y0.+sin.(circum), l=:black)
+    scatter!(p, x0.+cos.(a), y0.+sin.(a), m=markerstyle; kwargs...)
+    axial && scatter!(p, x0.+cos.(a+π), y0.+sin.(a+π), m=markerstyle; kwargs...)
     if azimuth
         xlabel!(p, "East")
         ylabel!(p, "North")
@@ -85,7 +83,7 @@ plotting the bars.
 """
 function cplot_histogram(a, binwidth, degrees::Bool=false;
                          azimuth::Bool=false, axial::Bool=false,
-                         weights=ones(a), circ=nothing,
+                         weights=ones(eltype(a), length(a)), circ=nothing,
                          kwargs...)
     hist = fit_hist(a, binwidth, degrees, axial, weights=weights)
     n = length(hist.weights)
@@ -146,13 +144,13 @@ function fit_hist(a, binwidth, degrees::Bool, axial::Bool;
     n = (degrees ? round(Int, 360/binwidth) : round(Int, 2pi/binwidth))
     n = max(1, n)
     binwidth = 2pi/n
-    bins = linspace(0, 2pi, n+1)
+    bins = range(0, stop=2pi, length=n+1)
     data = degrees ? deg2rad.(mod.(a, 360)) : mod.(a, 2pi)
     # FIXME: Many angles are given as whole numbers: this cludge helps
     # an issue where floating point values sometimes are binned one way,
     # sometimes another, giving polar histograms which depend on the range
     # in which angles are given.
-    data .+= 10*eps(eltype(a))
+    data .+= 10*eps(float(eltype(a)))
     axial && (data .= mod.(data, pi))
     h = StatsBase.fit(StatsBase.Histogram, data,
                       StatsBase.FrequencyWeights(weights), bins, closed=:left)
@@ -169,7 +167,7 @@ circle(r, x=0, y=0) = Shape(arc(0, 2π, r, x, y))
 """Return an arc (part of a circle's circumference) between `θ₁` and `θ₂` radians
 anticlockwise from the +x axis, with radius `r`, centred at `x` and `y`."""
 arc(θ₁, θ₂, r=1, x=0, y=0) = Tuple{Float64,Float64}[(x+r*cos(θ), y+r*sin(θ))
-    for θ in linspace(θ₁, θ₂, number_of_segments(θ₁, θ₂))]
+    for θ in range(θ₁, stop=θ₂, length=number_of_segments(θ₁, θ₂))]
 
 """Return a sector (pie wedge) between angles `θ₁` and `θ₂` radians anticlockwise
 from the x-axis with radius `r`, centred at `x` and `y`."""
