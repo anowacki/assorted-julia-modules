@@ -1,5 +1,3 @@
-__precompile__()
-
 """
 module SphericalGeom provides routines for making calulations on a sphere.
 
@@ -35,7 +33,7 @@ through lat = 90°.
 function cart2geog(x, y, z, degrees::Bool=true)
     r = sqrt(x^2 + y^2 + z^2)
     r == 0. && return zero(x), zero(x), zero(x)
-    lon = atan2(y, x)
+    lon = atan(y, x)
     lat = asin(z/r)
     degrees ? (rad2deg(lon), rad2deg(lat), r) : (lon, lat, r)
 end
@@ -62,7 +60,7 @@ function delta(lon1, lat1, lon2, lat2, degrees::Bool=true)
     if degrees
         lon1, lat1, lon2, lat2 = deg2rad(lon1), deg2rad(lat1), deg2rad(lon2), deg2rad(lat2)
     end
-    d = atan2(sqrt(
+    d = atan(sqrt(
                (cos(lat2)*sin(lon2-lon1))^2 + (cos(lat1)*sin(lat2) -
                 sin(lat1)*cos(lat2)*cos(lon2-lon1))^2),
                sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2)*cos(lon2-lon1)
@@ -117,8 +115,8 @@ function step(lon, lat, az, delta, degrees::Bool=true)
         delta <= pi || error("step: delta cannot be more than π radians")
     end
     lat2 = asin(sin(lat)*cos(delta) + cos(lat)*sin(delta)*cos(az))
-    lon2 = lon + atan2(sin(az)*sin(delta)*cos(lat),
-                        cos(delta)-sin(lat)*sin(lat2))
+    lon2 = lon + atan(sin(az)*sin(delta)*cos(lat),
+                      cos(delta)-sin(lat)*sin(lat2))
     if degrees
         lon2, lat2 = rad2deg(lon2), rad2deg(lat2)
     end
@@ -136,8 +134,8 @@ function azimuth(lon1, lat1, lon2, lat2, degrees::Bool=true)
     if degrees
         lon1, lat1, lon2, lat2 = deg2rad(lon1), deg2rad(lat1), deg2rad(lon2), deg2rad(lat2)
     end
-    azimuth = atan2(sin(lon2-lon1)*cos(lat2),
-                    cos(lat1)*sin(lat2) - sin(lat1)*cos(lat2)*cos(lon2-lon1))
+    azimuth = atan(sin(lon2-lon1)*cos(lat2),
+                   cos(lat1)*sin(lat2) - sin(lat1)*cos(lat2)*cos(lon2-lon1))
     degrees ? rad2deg(azimuth) : azimuth
 end
 
