@@ -148,7 +148,7 @@ and latitude (degrees).  Spacing and points are read and returned in degrees by 
 use `false` as last argument to use radians.
 """
 function sample(d=5, degrees::Bool=true)
-    const nmax = 50000
+    nmax = 50000
     lon = Array(Float64, nmax)
     lat = Array(Float64, nmax)
     n = 1
