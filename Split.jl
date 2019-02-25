@@ -1,6 +1,9 @@
 module Split
 # Perform shear wave splitting analysis on two orthogonal SAC traces
 
+using LinearAlgebra
+using StaticArrays
+
 using SAC
 
 # Module defaults
@@ -8,34 +11,41 @@ const split_ndt = 51
 const split_nphi = 181
 const split_dt_max = 4.
 
+"""
+    search_phi(t1, t2; nphi, ndt, dt_max) -> results
+
+Perform a search over a pair of SAC traces, `t1` and `t2`, for the smallest value of the
+minimum eigenvalue of the covariance matrix between the traces, for a set of `nphi`×`ndt`
+shear wave splitting operators.
+
+`results` is a named tuple containing:
+
+- `phi`: The set of fast shear wave orientations in °
+- `dt`: The set of delays times in s
+- `lam1`: The larger eigenvalues at each [phi,dt] point
+- `lam2`: The smaller eigenvalues at each point
+- `phi_best`: The best ϕ
+- `dt_best`: The best δt
+- `spol` and `dspol`: The source polarisation and an estimate of its uncertainty for the
+  best-fitting ϕ and δt
+"""
 function search_phi(t1::SACtr, t2::SACtr;
                     nphi=split_nphi, ndt=split_ndt, dt_max=split_dt_max)
     # Return the array of minimum eigenvalues of the covariance matrices
     # when examining trial operators with nphi fast orientations
-    phi = linspace(-90., 90., nphi)
-    dt = zeros(ndt)
-    lam1, lam2 = zeros(nphi,ndt), zeros(nphi,ndt)
+    phi = range(-90., stop=90., length=nphi)
+    dt = range(dt_max/ndt, stop=dt_max, length=ndt)
+    lam1, lam2 = zeros(SAC.SACFloat, nphi,ndt), zeros(SAC.SACFloat, nphi,ndt)
     T1, T2 = deepcopy(t1), deepcopy(t2)
-    for i = 1:nphi
-        dt, lam1[i,:], lam2[i,:] = search_dt(t1, t2, phi[i], dt_max, ndt, T1, T2)
+    @inbounds for j in eachindex(dt), i in eachindex(phi)
+        lam1[i,j], lam2[i,j] = compute_eigvals(t1, t2, phi[i], dt[j], T1, T2)
     end
     # Best parameters
     ip, idt = minloc2(lam2)
     # Find source polarisation and error therein
     spol, dspol = sourcepol(t1, t2, phi[ip], dt[idt])
     # Return minimum values as well
-    return phi, dt, lam1, lam2, phi[ip], dt[idt], spol, dspol
-end
-
-function search_dt(t1::SACtr, t2::SACtr, phi, dt_max, ndt, T1::SACtr, T2::SACtr)
-    # For a given fast orientation, return the smaller eigenvalue of the
-    # covariance matrix in an array accompanied by a vector of dts.
-    dt = linspace(dt_max/ndt, dt_max, ndt)
-    lam1, lam2 = zeros(ndt), zeros(ndt)
-    for i = 1:ndt
-        lam1[i], lam2[i] = compute_eigvals(t1, t2, phi, dt[i], T1, T2)
-    end
-    return dt, lam1, lam2
+    (phi=phi, dt=dt, lam1=lam1, lam2=lam2, phi_best=phi[ip], dt_best=dt[idt], spol=spol, dspol=dspol)
 end
 
 function apply_split!(t1::SACtr, t2::SACtr, phi::Number, dt::Number)
@@ -43,11 +53,34 @@ function apply_split!(t1::SACtr, t2::SACtr, phi::Number, dt::Number)
     # assumed to be orthogonal, and the first trace should be anticlockwise
     # of the second.
     theta = phi - t1.cmpaz
-    SAC.rotate_through!(t1, t2, theta)
+    rotate_traces!(t1, t2, theta)
     # Move the fast trace forward
-    SAC.tshift!(t1, -dt)
-    SAC.rotate_through!(t1, t2, -theta)
-    return
+    shift_trace!(t1, -dt)
+    rotate_traces!(t1, t2, -theta)
+    nothing
+end
+
+function rotate_traces!(s1, s2, phi)
+    # Version of SAC.rotate_through! which does not update headers
+    phir = deg2rad(phi)
+    cosp, sinp = cos(phir), sin(phir)
+    @inbounds for i = 1:s1.npts
+        s1.t[i], s2.t[i] = cosp*s1.t[i] - sinp*s2.t[i], sinp*s1.t[i] + cosp*s2.t[i]
+    end
+end
+
+function shift_trace!(t, dt)
+    # Version of SAC.tshift! which does not update headers and zeros out
+    # points shifted from outside the window
+    T = eltype(t.t)
+    n = round(Int, dt/t.delta)
+    if n == 0
+        return s
+    end
+    t.t .= circshift(t.t, n)
+    for i in 1:n
+        n > 0 ? t.t[1:n] .= zero(T) : t.t[end+n+1:end] .= zero(T)
+    end
 end
 
 function compute_eigvals(t1::SACtr, t2::SACtr, phi::Number, dt::Number, T1::SACtr, T2::SACtr)
@@ -59,8 +92,8 @@ function compute_eigvals(t1::SACtr, t2::SACtr, phi::Number, dt::Number, T1::SACt
     copy_trace!(t2, T2)
     apply_split!(T1, T2, phi, -dt)
     c = covar(T1, T2)
-    eval = Base.eigvals(c)
-    return maximum(eval), minimum(eval)
+    eval = eigvals(c)
+    maximum(eval), minimum(eval)
 end
 
 function sourcepol(t1::SACtr, t2::SACtr, phi::Number, dt::Number)
@@ -68,30 +101,32 @@ function sourcepol(t1::SACtr, t2::SACtr, phi::Number, dt::Number)
     T1, T2 = deepcopy(t1), deepcopy(t2)
     apply_split!(T1, T2, phi, -dt)
     c = covar(T1, T2)
-    eval, evec = Base.eig(c)
-    i1 = indmax(eval)
+    eval, evec = eigen(c)
+    i1 = argmax(eval)
     i2 = 3 - i1
     lam1 = eval[i1]
     lam2 = eval[i2]
-    spol = rad2deg(atan2(evec[2,i1], evec[1,i1]))
+    spol = rad2deg(atan(evec[2,i1], evec[1,i1]))
     dspol = rad2deg(atan(lam2/lam1))
     spol, dspol
 end
 
 function covar(t1::SACtr, t2::SACtr)
     # Return the covariance matrix for two traces
-    c = Array{SAC.SACFloat}(2, 2)
-    c[1,1] = sum(t1.t.^2)
-    c[2,2] = sum(t2.t.^2)
-    c[1,2] = c[2,1] = sum(t1.t.*t2.t)
-    return c
+    c11 = c22 = c12 = zero(eltype(t1.t))
+    @inbounds for i in 1:t1.npts
+        c11 += t1.t[i]^2
+        c22 += t2.t[i]^2
+        c12 += t1.t[i]*t2.t[i]
+    end
+    c = SArray{Tuple{2,2},SAC.SACFloat}(c11, c12, c12, c22)
+    c
 end
 
-const headers = "a"
 @eval begin
     """
         copy_trace!(a::SACtr, b::SACtr)
-    
+
     Copy the SACtr trace `a` into `b` without allocating.
     """
     function copy_trace!(a::SACtr, b::SACtr)
@@ -107,8 +142,8 @@ function minloc2(A)
     # Why isn't this implemented (in general) for n-arrays in Julia already?
     imin = jmin = 0
     min = zero(eltype(A))
-    for j = 1:size(A, 2)
-        for i = 1:size(A, 1)
+    for j in 1:size(A, 2)
+        for i in 1:size(A, 1)
             if i == j == 1
                 imin = jmin = 1
                 min = A[i,j]
@@ -121,7 +156,7 @@ function minloc2(A)
             end
         end
     end
-    return (imin,jmin)
+    imin, jmin
 end
 
 end # module
