@@ -62,10 +62,10 @@ end
 
 function rotate_traces!(s1, s2, phi)
     # Version of SAC.rotate_through! which does not update headers
-    phir = deg2rad(phi)
-    cosp, sinp = cos(phir), sin(phir)
-    @inbounds for i = 1:s1.npts
-        s1.t[i], s2.t[i] = cosp*s1.t[i] - sinp*s2.t[i], sinp*s1.t[i] + cosp*s2.t[i]
+    phir = (eltype(s1.t))(deg2rad(phi))
+    sinp, cosp = sincos(phir)
+    for i = 1:s1.npts
+        @inbounds s1.t[i], s2.t[i] = cosp*s1.t[i] - sinp*s2.t[i], sinp*s1.t[i] + cosp*s2.t[i]
     end
 end
 
@@ -77,10 +77,29 @@ function shift_trace!(t, dt)
     if n == 0
         return s
     end
-    t.t .= circshift(t.t, n)
-    for i in 1:n
-        n > 0 ? t.t[1:n] .= zero(T) : t.t[end+n+1:end] .= zero(T)
+    _arrayshift!(t.t, n)
+end
+
+function _arrayshift!(a, n)
+    # Shift the elements of an array back by n items
+    N = length(a)
+    O = zero(eltype(a))
+    if n > 0
+        @inbounds for i in N:-1:(n + 1)
+            a[i] = a[i-n]
+        end
+        @inbounds for i in 1:n
+            a[i] = O
+        end
+    elseif n < 0
+        @inbounds for i in 1:(N + n)
+            a[i] = a[i-n]
+        end
+        @inbounds for i in (N + n + 1):N
+            a[i] = O
+        end
     end
+    a
 end
 
 function compute_eigvals(t1::SACtr, t2::SACtr, phi::Number, dt::Number, T1::SACtr, T2::SACtr)
