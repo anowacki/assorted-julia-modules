@@ -89,7 +89,7 @@ function geog2cart(lon::AbstractArray, lat::AbstractArray, r::AbstractArray, deg
     size(lon) == size(lat) == size(r) ||
         throw(ArgumentError("Sizes of lon, lat and r must be the same"))
     T = promote_type(float.(eltype.((lon, lat, r)))...)
-    x = Array{T}(size(lon))
+    x = Array{T}(undef, size(lon))
     y, z = similar(x), similar(x)
     for i in eachindex(lon)
         x[i], y[i], z[i] = geog2cart(lon[i], lat[i], r[i], degrees)
@@ -97,7 +97,7 @@ function geog2cart(lon::AbstractArray, lat::AbstractArray, r::AbstractArray, deg
     x, y, z
 end
 geog2cart(lon::AbstractArray, lat::AbstractArray, degrees::Bool=true) =
-    geog2cart(lon, lat, ones(lon), degrees)
+    geog2cart(lon, lat, fill(one(eltype(lon)), size(lon)), degrees)
 
 
 """
