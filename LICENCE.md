@@ -1,6 +1,6 @@
-The Julia SAC module is licensed under under an MIT-style licence:
+The Julia code in this directory is licensed under under the MIT license:
 
-Copyright (c) 2015-7 Andy Nowacki (a.nowacki@leeds.ac.uk)
+Copyright (c) 2015-20 Andy Nowacki (a.nowacki@leeds.ac.uk)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
