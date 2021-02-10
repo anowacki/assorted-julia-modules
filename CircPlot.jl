@@ -62,7 +62,7 @@ function cplot_pts(a, degrees::Bool=false;
 end
 
 """
-    cplot_histogram(a, binwidth, degrees=false; azimuth=false, axial=false, circ=nothing; kwargs...) -> ::Plots.Plot
+    cplot_histogram(a, binwidth, degrees=false; azimuth=false, axial=false, weights=ones(length(a)), circ=nothing; kwargs...) -> ::Plots.Plot
 
 Plot a polar histogram of a set of angles `a` using bins `binwidth` wide.
 `binwidth` should be given in the same convention (radians or °) as the data.
@@ -73,6 +73,9 @@ Use `azimuth=true` to plot angles clockwise from north.
 
 Use `axial=true` if data are π-ambiguous (i.e., are orientational rather than
 directional data).
+
+`weights` must have the same length as `a`, and if passed in will scale each
+point `i` by `weights[i]`.
 
 Set options for the surrounding circle using `circ=Dict(:opt=>val)`, where
 the keys and values in the Dict will be passed to Plots for plotting the circle
