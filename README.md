@@ -23,9 +23,6 @@ These modules have been updated for Julia v1 and so should still work.
 
 - `CorrelationDimension`: Calculate the correlation or fractal dimension
   of a set of points
-- `FortranReader`: Read and write 'non-portable' Fortran unformatted files
-  produced by at least `gfortran`.
-- `SphericalGeom`: Routines for points on the sphere.
 
 ## Superceded modules
 
@@ -49,7 +46,6 @@ You will then need to manually add the dependencies for each package:
 
 - `CircPlot`: `pkg> add StatsBase Plots`
 - `CorrelationDimension`: `pkg> add Plots Distributions StatsBase`
-- `SphericalGeom`: `pkg> add StaticArrays`
 
 ## License
 See [the licence file](LICENCE.md).
